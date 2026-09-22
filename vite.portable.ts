@@ -38,6 +38,7 @@ export default defineConfig({
           const name = asset.names?.[0] || asset.name || "asset";
           if (name.endsWith(".css")) return "styles-[hash][extname]";
           if (/\.(svg|png|jpe?g|gif|webp|ico)$/i.test(name)) return "icon-[hash][extname]";
+          if (/\.(woff2?|otf|ttf)$/i.test(name)) return "[name][extname]";
           return "[name]-[hash][extname]";
         },
       },

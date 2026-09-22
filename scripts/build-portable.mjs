@@ -90,14 +90,30 @@ window.__XLSX_SRC__ = "./${xlsxName}";
 </html>
 `;
 await writeFile(join(outDir, "index.html"), html);
+await writeFile(join(outDir, ".nojekyll"), "");
 
 const listed = (await readdir(outDir))
   .filter((name) =>
     name === "index.html" ||
-    /^(scripts-|styles-|icon-|xlsx-|font-)/.test(name),
+    /^(scripts-|styles-|icon-|xlsx-)/.test(name) ||
+    /\.(woff2?|otf|ttf)$/.test(name),
   )
   .sort();
 console.log(`[portable] public/${listed.join(", public/")}`);
+
+async function fontNameIndex() {
+  const index = new Map();
+  const families = ["ibm-plex-sans", "ibm-plex-mono"];
+  for (const family of families) {
+    const dir = join(root, "node_modules", "@fontsource", family, "files");
+    for (const name of await readdir(dir)) {
+      if (!/\.(woff2?|otf|ttf)$/i.test(name)) continue;
+      const bytes = await readFile(join(dir, name));
+      index.set(createHash("sha256").update(bytes).digest("hex"), name);
+    }
+  }
+  return index;
+}
 
 async function extractCssFonts(cssPath, dir) {
   let css = await readFile(cssPath, "utf8");
@@ -105,23 +121,26 @@ async function extractCssFonts(cssPath, dir) {
   css = css.replace(/@font-face\s*\{/g, (block) =>
     /font-display:/.test(block) ? block : "@font-face{font-display:swap;",
   );
+  const names = await fontNameIndex();
   const re =
     /url\(\s*(['"]?)data:(font\/(?:woff2?|opentype)|application\/(?:font-woff2?|octet-stream));base64,([A-Za-z0-9+/=\s]+)\1\s*\)/g;
   const seen = new Map();
   const writes = [];
   css = css.replace(re, (_full, _q, mime, b64) => {
+    if (!String(mime).includes("woff2")) return "";
     const bytes = Buffer.from(String(b64).replace(/\s+/g, ""), "base64");
-    const key = bytes.toString("base64").slice(0, 80);
-    let fileName = seen.get(key);
+    const digest = createHash("sha256").update(bytes).digest("hex");
+    let fileName = seen.get(digest);
     if (!fileName) {
-      const ext = String(mime).includes("woff2") ? ".woff2" : String(mime).includes("woff") ? ".woff" : ".otf";
-      const hash = createHash("sha256").update(bytes).digest("hex").slice(0, 16);
-      fileName = `font-${hash}${ext}`;
-      seen.set(key, fileName);
+      fileName = names.get(digest) || `font-${digest.slice(0, 16)}.woff2`;
+      seen.set(digest, fileName);
       writes.push(writeFile(join(dir, fileName), bytes));
     }
     return `url(./${fileName})`;
   });
+  css = css.replace(/src:url\((\.\/[^)]+\.woff2)\)format\("woff2"\),format\("woff"\)/g, 'src:url($1)format("woff2")');
+  css = css.replace(/,format\("woff"\)/g, "");
+  css = css.replace(/format\("woff"\),/g, "");
   await Promise.all(writes);
   await writeFile(cssPath, css);
   return cssPath.split("/").pop();
@@ -138,7 +157,8 @@ async function cleanPortableFiles(dir) {
       /^styles-.+\.css$/.test(name) ||
       /^xlsx-.+\.js$/.test(name) ||
       /^icon-.+\.svg$/.test(name) ||
-      /^font-.+\.(woff2|woff|otf)$/.test(name);
+      /^font-.+\.(woff2|woff|otf|ttf)$/.test(name) ||
+      /^ibm-plex-.+\.(woff2|woff|otf|ttf)$/.test(name);
     if (portable) await rm(join(dir, name), { force: true });
   }
 }
