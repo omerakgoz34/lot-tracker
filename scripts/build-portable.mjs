@@ -9,6 +9,7 @@ const outDir = join(root, "public");
 
 await cleanPortableFiles(outDir);
 await build({ configFile: join(root, "vite.portable.ts") });
+await build({ configFile: join(root, "vite.portable-xlsx.ts") });
 
 async function hashedName(prefix, filePath) {
   const bytes = await readFile(filePath);
@@ -16,12 +17,17 @@ async function hashedName(prefix, filePath) {
   return `${prefix}-${hash}${extname(filePath)}`;
 }
 
-const files = (await readdir(outDir)).filter((name) => !name.startsWith(".") && name !== "__grok");
-let scriptName = files.find((name) => /^scripts-.+\.js$/.test(name) && !name.includes("[hash]"));
-let styleName = files.find((name) => /^styles-.+\.css$/.test(name) && !name.includes("[hash]"));
+function pick(files, pattern) {
+  return files.find((name) => pattern.test(name) && !name.includes("[hash]"));
+}
+
+let files = (await readdir(outDir)).filter((name) => !name.startsWith(".") && name !== "__grok");
+let scriptName = pick(files, /^scripts-.+\.js$/);
+let styleName = pick(files, /^styles-.+\.css$/);
+let xlsxName = pick(files, /^xlsx-.+\.js$/);
 
 if (!scriptName) {
-  const js = files.find((name) => name.endsWith(".js"));
+  const js = files.find((name) => name.endsWith(".js") && !name.startsWith("xlsx-"));
   if (!js) throw new Error("portable build produced no JS");
   scriptName = await hashedName("scripts", join(outDir, js));
   await writeFile(join(outDir, scriptName), await readFile(join(outDir, js)));
@@ -34,6 +40,13 @@ if (!styleName) {
   await writeFile(join(outDir, styleName), await readFile(join(outDir, css)));
   if (css !== styleName) await rm(join(outDir, css), { force: true });
 }
+if (!xlsxName) {
+  const js = files.find((name) => name.startsWith("xlsx-") && name.endsWith(".js"));
+  if (!js) throw new Error("portable build produced no xlsx chunk");
+  xlsxName = js;
+}
+
+styleName = await extractCssFonts(join(outDir, styleName), outDir);
 
 const favicon = await readFile(join(outDir, "favicon.svg"));
 const iconName = `icon-${createHash("sha256").update(favicon).digest("hex").slice(0, 16)}.svg`;
@@ -48,7 +61,14 @@ const html = `<!doctype html>
     <meta name="color-scheme" content="light dark" />
     <title>DEPO LOT TAKIP</title>
     <link rel="icon" type="image/svg+xml" href="./${iconName}" />
-    <link rel="stylesheet" href="./${styleName}" />
+    <style>
+      html,body{background:#fff;color:#141414;margin:0}
+      html.dark,html.dark body{background:#0c0d0f;color:#f3f1ec}
+    </style>
+    <link rel="preload" href="./${styleName}" as="style" />
+    <link rel="preload" href="./${scriptName}" as="script" />
+    <link rel="stylesheet" href="./${styleName}" media="print" onload="this.onload=null;this.media='all'" />
+    <noscript><link rel="stylesheet" href="./${styleName}" /></noscript>
   </head>
   <body class="min-h-dvh bg-background text-foreground">
     <div id="root">
@@ -63,17 +83,49 @@ const html = `<!doctype html>
 window.globalThis = window.globalThis || window;
 window.global = window.global || window;
 window.process = window.process || { env: { NODE_ENV: "production" } };
+window.__XLSX_SRC__ = "./${xlsxName}";
     </script>
-    <script src="./${scriptName}"></script>
+    <script src="./${scriptName}" defer></script>
   </body>
 </html>
 `;
 await writeFile(join(outDir, "index.html"), html);
 
 const listed = (await readdir(outDir))
-  .filter((name) => name === "index.html" || /^(scripts-|styles-|icon-)/.test(name))
+  .filter((name) =>
+    name === "index.html" ||
+    /^(scripts-|styles-|icon-|xlsx-|font-)/.test(name),
+  )
   .sort();
 console.log(`[portable] public/${listed.join(", public/")}`);
+
+async function extractCssFonts(cssPath, dir) {
+  let css = await readFile(cssPath, "utf8");
+  css = css.replace(/font-display:\s*auto/gi, "font-display:swap");
+  css = css.replace(/@font-face\s*\{/g, (block) =>
+    /font-display:/.test(block) ? block : "@font-face{font-display:swap;",
+  );
+  const re =
+    /url\(\s*(['"]?)data:(font\/(?:woff2?|opentype)|application\/(?:font-woff2?|octet-stream));base64,([A-Za-z0-9+/=\s]+)\1\s*\)/g;
+  const seen = new Map();
+  const writes = [];
+  css = css.replace(re, (_full, _q, mime, b64) => {
+    const bytes = Buffer.from(String(b64).replace(/\s+/g, ""), "base64");
+    const key = bytes.toString("base64").slice(0, 80);
+    let fileName = seen.get(key);
+    if (!fileName) {
+      const ext = String(mime).includes("woff2") ? ".woff2" : String(mime).includes("woff") ? ".woff" : ".otf";
+      const hash = createHash("sha256").update(bytes).digest("hex").slice(0, 16);
+      fileName = `font-${hash}${ext}`;
+      seen.set(key, fileName);
+      writes.push(writeFile(join(dir, fileName), bytes));
+    }
+    return `url(./${fileName})`;
+  });
+  await Promise.all(writes);
+  await writeFile(cssPath, css);
+  return cssPath.split("/").pop();
+}
 
 async function cleanPortableFiles(dir) {
   const names = await readdir(dir);
@@ -84,7 +136,9 @@ async function cleanPortableFiles(dir) {
       name === "BASLAT.bat" ||
       /^scripts-.+\.js$/.test(name) ||
       /^styles-.+\.css$/.test(name) ||
-      /^icon-.+\.svg$/.test(name);
+      /^xlsx-.+\.js$/.test(name) ||
+      /^icon-.+\.svg$/.test(name) ||
+      /^font-.+\.(woff2|woff|otf)$/.test(name);
     if (portable) await rm(join(dir, name), { force: true });
   }
 }

@@ -17,6 +17,38 @@ function isCsvLike(file: File): boolean {
   );
 }
 
+type XlsxModule = typeof import("xlsx");
+
+function injectScript(src: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector(`script[src="${src}"]`);
+    if (existing) {
+      existing.addEventListener("load", () => resolve());
+      existing.addEventListener("error", () => reject(new Error("xlsx")));
+      return;
+    }
+    const el = document.createElement("script");
+    el.src = src;
+    el.async = true;
+    el.onload = () => resolve();
+    el.onerror = () => reject(new Error("Could not load the spreadsheet engine."));
+    document.head.appendChild(el);
+  });
+}
+
+async function loadXlsx(): Promise<XlsxModule> {
+  const w = window as Window & { XLSX?: XlsxModule; __XLSX_SRC__?: string };
+  if (w.XLSX) return w.XLSX;
+  if (import.meta.env.VITE_PORTABLE === "1") {
+    const src = w.__XLSX_SRC__;
+    if (!src) throw new Error("Could not load the spreadsheet engine.");
+    await injectScript(src);
+    if (!w.XLSX) throw new Error("Could not load the spreadsheet engine.");
+    return w.XLSX;
+  }
+  return import("xlsx");
+}
+
 export async function parseWorkbook(file: File): Promise<WorkbookData> {
   const buffer = await file.arrayBuffer();
   if (isCsvLike(file)) {
@@ -26,7 +58,7 @@ export async function parseWorkbook(file: File): Promise<WorkbookData> {
     return { sheetNames: [name], sheets: { [name]: parsed } };
   }
 
-  const XLSX = await import("xlsx");
+  const XLSX = await loadXlsx();
   const workbook = XLSX.read(buffer, { type: "array", cellDates: false });
   if (!workbook.SheetNames.length) throw new Error("The workbook has no sheets.");
 

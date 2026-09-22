@@ -28,7 +28,9 @@ export default defineConfig({
       fileName: () => "scripts-[hash].js",
     },
     rollupOptions: {
+      external: ["xlsx"],
       output: {
+        globals: { xlsx: "XLSX" },
         inlineDynamicImports: true,
         entryFileNames: "scripts-[hash].js",
         chunkFileNames: "scripts-[hash].js",
