@@ -5,7 +5,7 @@ import { a as RefreshCw, c as FileSpreadsheet, d as Check, f as ArrowLeft, i as 
 import { n as clsx, t as cva } from "../_libs/class-variance-authority+clsx.mjs";
 import { t as Slot } from "../_libs/radix-ui__react-slot.mjs";
 import { t as twMerge } from "../_libs/tailwind-merge.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/routes-Cd8Ue17-.js
+//#region node_modules/.nitro/vite/services/ssr/assets/routes-C7fcovw3.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 function cn(...inputs) {
@@ -213,6 +213,7 @@ function scoreHeader(header, kind) {
 		"article nr",
 		"artikel",
 		"artikel nr",
+		"artikel no",
 		"art no",
 		"art nr",
 		"art number",
@@ -237,11 +238,17 @@ function scoreHeader(header, kind) {
 	const altExact = [
 		"alternative",
 		"alternative article",
+		"alternative lot",
 		"alt article",
+		"alt lot",
 		"alt sku",
 		"alternatif",
 		"alternatif kod",
 		"alternatif artikel",
+		"alternatif lot",
+		"web lot",
+		"web lot nr",
+		"web lot no",
 		"equivalent",
 		"old article",
 		"old sku"
@@ -853,10 +860,11 @@ var dict = {
 		chooseFile: "Dosya seç",
 		columns: "Sütunlar",
 		columnsHint: "Artikel ve alternatif artikel tam eşleşir. Ürün adında metin aranır. LOT yalnızca tam eşleşir.",
-		article: "Artikel",
-		alternativeArticle: "Alternatif artikel",
-		productName: "Ürün adı",
+		article: "Artikel Numarası",
+		alternativeArticle: "Alternatif LOT Numarası",
+		productName: "Ürün Adı",
 		lot: "LOT",
+		lotNumber: "LOT Numarası",
 		none: "Yok",
 		lookUp: "Artikel ara",
 		refresh: "Yenile",
@@ -870,9 +878,10 @@ var dict = {
 		copy: "Kopyala",
 		copied: "Kopyalandı",
 		matchedOn: "Eşleşme",
-		matchedAlt: "Alternatif artikel",
+		matchedAlt: "Alternatif lot",
 		matchedLot: "LOT",
 		matchedName: "Ürün adı",
+		appVersion: "V5",
 		noLot: "Eşleşme yok",
 		missHint: "Artikel, alternatif artikel ve LOT için tam eşleşme; ürün adı için metin araması kullanılır.",
 		pasteLinkFirst: "Önce bir Google Sheets bağlantısı yapıştırın.",
@@ -917,10 +926,11 @@ var dict = {
 		chooseFile: "Choose file",
 		columns: "Columns",
 		columnsHint: "Article and alternative article use exact match. Product names are searched as text. LOT is exact only.",
-		article: "Article",
-		alternativeArticle: "Alternative article",
-		productName: "Product name",
+		article: "Article Number",
+		alternativeArticle: "Alternative LOT Number",
+		productName: "Product Name",
 		lot: "LOT",
+		lotNumber: "LOT Number",
 		none: "None",
 		lookUp: "Look up articles",
 		refresh: "Refresh",
@@ -934,9 +944,10 @@ var dict = {
 		copy: "Copy",
 		copied: "Copied",
 		matchedOn: "Matched on",
-		matchedAlt: "Alternative article",
+		matchedAlt: "Alternative lot",
 		matchedLot: "LOT",
 		matchedName: "Product name",
+		appVersion: "V5",
 		noLot: "No match",
 		missHint: "Article, alternative article, and LOT use exact match. Product names use text search.",
 		pasteLinkFirst: "Paste a Google Sheets link first.",
@@ -981,10 +992,11 @@ var dict = {
 		chooseFile: "Datei wählen",
 		columns: "Spalten",
 		columnsHint: "Artikel und Alternativartikel exakt. Produktnamen als Text. LOT nur exakt.",
-		article: "Artikel",
-		alternativeArticle: "Alternativartikel",
+		article: "Artikelnummer",
+		alternativeArticle: "Alternative LOT-Nummer",
 		productName: "Produktname",
 		lot: "LOT",
+		lotNumber: "LOT-Nummer",
 		none: "Keine",
 		lookUp: "Artikel suchen",
 		refresh: "Aktualisieren",
@@ -998,9 +1010,10 @@ var dict = {
 		copy: "Kopieren",
 		copied: "Kopiert",
 		matchedOn: "Treffer über",
-		matchedAlt: "Alternativartikel",
+		matchedAlt: "Alternativ-LOT",
 		matchedLot: "LOT",
 		matchedName: "Produktname",
+		appVersion: "V5",
 		noLot: "Kein Treffer",
 		missHint: "Artikel, Alternativartikel und LOT exakt. Produktnamen als Textsuche.",
 		pasteLinkFirst: "Zuerst einen Google-Sheets-Link einfügen.",
@@ -1429,9 +1442,18 @@ function LotTag({ hit, tr, defaultOpen }) {
 				className: "text-xs font-medium uppercase tracking-[0.18em] text-ink-muted",
 				children: tr("lot")
 			}),
-			/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
-				className: "mt-3 break-all font-mono text-lot font-medium leading-none tracking-tight text-ink",
-				children: hit.lot || "—"
+			/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+				className: "mt-3 flex items-center justify-center gap-2",
+				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+					className: "min-w-0 break-all font-mono text-lot font-medium leading-none tracking-tight text-ink",
+					children: hit.lot || "—"
+				}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
+					type: "button",
+					className: "inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-ink-muted",
+					onClick: () => void copyLot(),
+					"aria-label": `${tr("lot")} ${hit.lot}. ${tr("copy")}`,
+					children: copied ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Check, { className: "size-4" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Copy, { className: "size-4" })
+				})]
 			}),
 			hit.article ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
 				className: "mt-3 break-all font-mono text-sm text-ink",
@@ -1449,13 +1471,6 @@ function LotTag({ hit, tr, defaultOpen }) {
 					viaLabel
 				]
 			}) : null,
-			/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
-				type: "button",
-				className: "mx-auto mt-5 inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg px-4 text-xs font-medium text-ink-muted shadow-[var(--shadow-border)]",
-				onClick: () => void copyLot(),
-				"aria-label": `${tr("lot")} ${hit.lot}. ${tr("copy")}`,
-				children: [copied ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Check, { className: "size-3.5" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Copy, { className: "size-3.5" }), copied ? tr("copied") : tr("copy")]
-			}),
 			open ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
 				className: "mt-5 border-t border-ink/10 pt-4 text-left",
 				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("dl", {
@@ -1716,29 +1731,6 @@ function SourceView({ settings, catalog, busy, error, tr, setBusy, setError, set
 						className: "mt-4 grid gap-3",
 						children: [
 							/* @__PURE__ */ (0, import_jsx_runtime.jsx)(FieldSelect, {
-								id: "col-article",
-								label: tr("article"),
-								value: columns.article,
-								headers,
-								noneLabel: tr("none"),
-								onChange: (article) => onColumnsChange({
-									...columns,
-									article
-								})
-							}),
-							/* @__PURE__ */ (0, import_jsx_runtime.jsx)(FieldSelect, {
-								id: "col-alt",
-								label: tr("alternativeArticle"),
-								value: columns.alternative ?? "",
-								headers,
-								allowNone: true,
-								noneLabel: tr("none"),
-								onChange: (alternative) => onColumnsChange({
-									...columns,
-									alternative: alternative || null
-								})
-							}),
-							/* @__PURE__ */ (0, import_jsx_runtime.jsx)(FieldSelect, {
 								id: "col-name",
 								label: tr("productName"),
 								value: columns.name ?? "",
@@ -1751,14 +1743,37 @@ function SourceView({ settings, catalog, busy, error, tr, setBusy, setError, set
 								})
 							}),
 							/* @__PURE__ */ (0, import_jsx_runtime.jsx)(FieldSelect, {
+								id: "col-article",
+								label: tr("article"),
+								value: columns.article,
+								headers,
+								noneLabel: tr("none"),
+								onChange: (article) => onColumnsChange({
+									...columns,
+									article
+								})
+							}),
+							/* @__PURE__ */ (0, import_jsx_runtime.jsx)(FieldSelect, {
 								id: "col-lot",
-								label: tr("lot"),
+								label: tr("lotNumber"),
 								value: columns.lot,
 								headers,
 								noneLabel: tr("none"),
 								onChange: (lot) => onColumnsChange({
 									...columns,
 									lot
+								})
+							}),
+							/* @__PURE__ */ (0, import_jsx_runtime.jsx)(FieldSelect, {
+								id: "col-alt",
+								label: tr("alternativeArticle"),
+								value: columns.alternative ?? "",
+								headers,
+								allowNone: true,
+								noneLabel: tr("none"),
+								onChange: (alternative) => onColumnsChange({
+									...columns,
+									alternative: alternative || null
 								})
 							})
 						]
@@ -1864,6 +1879,10 @@ function SourceView({ settings, catalog, busy, error, tr, setBusy, setError, set
 						})]
 					})
 				]
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+				className: "px-1 pt-2 text-center text-xs tracking-wide text-subtle",
+				children: tr("appVersion")
 			}),
 			/* @__PURE__ */ (0, import_jsx_runtime.jsx)(ConfirmDialog, {
 				open: confirmKind !== null,

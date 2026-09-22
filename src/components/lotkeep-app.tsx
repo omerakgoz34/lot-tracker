@@ -463,9 +463,19 @@ function LotTag({
     <article className="lot-tag">
       <span className="lot-tag-hole" aria-hidden="true" />
       <p className="text-xs font-medium uppercase tracking-[0.18em] text-ink-muted">{tr("lot")}</p>
-      <p className="mt-3 break-all font-mono text-lot font-medium leading-none tracking-tight text-ink">
-        {hit.lot || "—"}
-      </p>
+      <div className="mt-3 flex items-center justify-center gap-2">
+        <p className="min-w-0 break-all font-mono text-lot font-medium leading-none tracking-tight text-ink">
+          {hit.lot || "—"}
+        </p>
+        <button
+          type="button"
+          className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-ink-muted"
+          onClick={() => void copyLot()}
+          aria-label={`${tr("lot")} ${hit.lot}. ${tr("copy")}`}
+        >
+          {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+        </button>
+      </div>
       {hit.article ? (
         <p className="mt-3 break-all font-mono text-sm text-ink">{hit.article}</p>
       ) : null}
@@ -475,15 +485,6 @@ function LotTag({
           {tr("matchedOn")}: {viaLabel}
         </p>
       ) : null}
-      <button
-        type="button"
-        className="mx-auto mt-5 inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg px-4 text-xs font-medium text-ink-muted shadow-[var(--shadow-border)]"
-        onClick={() => void copyLot()}
-        aria-label={`${tr("lot")} ${hit.lot}. ${tr("copy")}`}
-      >
-        {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-        {copied ? tr("copied") : tr("copy")}
-      </button>
       {open ? (
         <div className="mt-5 border-t border-ink/10 pt-4 text-left">
           <dl className="space-y-2 text-sm">
@@ -732,12 +733,29 @@ function SourceView({
           <p className="mt-1 px-1 text-xs text-subtle">{tr("columnsHint")}</p>
           <div className="mt-4 grid gap-3">
             <FieldSelect
+              id="col-name"
+              label={tr("productName")}
+              value={columns.name ?? ""}
+              headers={headers}
+              allowNone
+              noneLabel={tr("none")}
+              onChange={(name) => onColumnsChange({ ...columns, name: name || null })}
+            />
+            <FieldSelect
               id="col-article"
               label={tr("article")}
               value={columns.article}
               headers={headers}
               noneLabel={tr("none")}
               onChange={(article) => onColumnsChange({ ...columns, article })}
+            />
+            <FieldSelect
+              id="col-lot"
+              label={tr("lotNumber")}
+              value={columns.lot}
+              headers={headers}
+              noneLabel={tr("none")}
+              onChange={(lot) => onColumnsChange({ ...columns, lot })}
             />
             <FieldSelect
               id="col-alt"
@@ -749,23 +767,6 @@ function SourceView({
               onChange={(alternative) =>
                 onColumnsChange({ ...columns, alternative: alternative || null })
               }
-            />
-            <FieldSelect
-              id="col-name"
-              label={tr("productName")}
-              value={columns.name ?? ""}
-              headers={headers}
-              allowNone
-              noneLabel={tr("none")}
-              onChange={(name) => onColumnsChange({ ...columns, name: name || null })}
-            />
-            <FieldSelect
-              id="col-lot"
-              label={tr("lot")}
-              value={columns.lot}
-              headers={headers}
-              noneLabel={tr("none")}
-              onChange={(lot) => onColumnsChange({ ...columns, lot })}
             />
           </div>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
@@ -885,6 +886,8 @@ function SourceView({
           </button>
         </div>
       </section>
+
+      <p className="px-1 pt-2 text-center text-xs tracking-wide text-subtle">{tr("appVersion")}</p>
 
       <ConfirmDialog
         open={confirmKind !== null}
