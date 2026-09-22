@@ -150,10 +150,10 @@ html.dark {
     position: relative;
     background: var(--paper);
     color: var(--ink);
-    border-radius: var(--radius-lg);
-    padding: 1.75rem 1.5rem 1.5rem 1.5rem;
+    border-radius: var(--radius-xl);
+    padding: 2.25rem 1.25rem 1rem;
     box-shadow: var(--shadow-paper);
-    text-align: left;
+    text-align: center;
     width: 100%;
   }
 
@@ -164,13 +164,14 @@ html.dark {
 
   .lot-tag-hole {
     position: absolute;
-    top: 1.125rem;
-    left: 1.125rem;
+    top: 0.85rem;
+    left: 50%;
     width: 0.7rem;
     height: 0.7rem;
     border-radius: 999px;
     background: var(--hole);
     box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--ink) 14%, transparent);
+    transform: translateX(-50%);
   }
 
   .dropzone {

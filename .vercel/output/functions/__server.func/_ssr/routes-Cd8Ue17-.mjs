@@ -5,7 +5,7 @@ import { a as RefreshCw, c as FileSpreadsheet, d as Check, f as ArrowLeft, i as 
 import { n as clsx, t as cva } from "../_libs/class-variance-authority+clsx.mjs";
 import { t as Slot } from "../_libs/radix-ui__react-slot.mjs";
 import { t as twMerge } from "../_libs/tailwind-merge.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/routes-fmat0k5f.js
+//#region node_modules/.nitro/vite/services/ssr/assets/routes-Cd8Ue17-.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 function cn(...inputs) {
@@ -348,6 +348,17 @@ function detectColumns(headers) {
 		name
 	};
 }
+function reuseColumns(existing, headers) {
+	const detected = detectColumns(headers);
+	if (!existing) return detected;
+	const has = (header) => Boolean(header && headers.includes(header));
+	return {
+		article: has(existing.article) ? existing.article : detected.article,
+		lot: has(existing.lot) ? existing.lot : detected.lot,
+		alternative: existing.alternative === null ? null : has(existing.alternative) ? existing.alternative : detected.alternative,
+		name: existing.name === null ? null : has(existing.name) ? existing.name : detected.name
+	};
+}
 function pushMap(map, key, row) {
 	const list = map.get(key);
 	if (list) list.push(row);
@@ -578,10 +589,44 @@ function loadViaGvizJsonp(id, gid) {
 		document.head.appendChild(script);
 	});
 }
+function usableTitle(raw) {
+	const title = raw.replace(/\s+[-–—]\s+Google.*$/i, "").replace(/\.(xlsx|xls|csv|ods|tsv)$/i, "").trim();
+	if (!title) return "";
+	if (/^google\s*(sheets?|e-?tablolar|spreadsheets?|docs|drive)$/i.test(title)) return "";
+	return title;
+}
+function loadSheetTitleJsonp(id) {
+	return new Promise((resolve) => {
+		const callback = `__depoLotTitle${Math.random().toString(36).slice(2)}`;
+		const script = document.createElement("script");
+		let settled = false;
+		const timeout = window.setTimeout(() => finish(""), 8e3);
+		function finish(title) {
+			if (settled) return;
+			settled = true;
+			window.clearTimeout(timeout);
+			script.remove();
+			delete window[callback];
+			resolve(title);
+		}
+		window[callback] = (data) => {
+			finish(usableTitle(data?.feed?.title?.$t ?? ""));
+		};
+		script.src = `https://spreadsheets.google.com/feeds/worksheets/${id}/public/basic?alt=json-in-script&callback=${callback}`;
+		script.async = true;
+		script.onerror = () => finish("");
+		document.head.appendChild(script);
+	});
+}
+async function resolveSheetTitle(id) {
+	const attempts = [loadSheetTitleJsonp(id)];
+	attempts.push(import("./fetch-sheet-D9XHGnnJ.mjs").then((mod) => mod.fetchGoogleSheetTitle({ data: { id } })).catch(() => ""));
+	return (await Promise.all(attempts)).map(usableTitle).find(Boolean) ?? "";
+}
 async function loadGoogleSheet(url) {
 	const ref = parseSheetsUrl(url);
 	if (!ref) throw new Error("Paste a Google Sheets link from the address bar.");
-	const titlePromise = import("./fetch-sheet-D9XHGnnJ.mjs").then((mod) => mod.fetchGoogleSheetTitle({ data: { id: ref.id } })).catch(() => "");
+	const titlePromise = resolveSheetTitle(ref.id);
 	try {
 		const parsed = await loadViaGvizJsonp(ref.id, ref.gid);
 		const title = await titlePromise || "";
@@ -593,8 +638,9 @@ async function loadGoogleSheet(url) {
 	} catch (err) {
 		{
 			const { fetchGoogleSheetCsv } = await import("./fetch-sheet-D9XHGnnJ.mjs");
-			const csv = await fetchGoogleSheetCsv({ data: ref });
-			const title = await titlePromise || "";
+			const result = await fetchGoogleSheetCsv({ data: ref });
+			const csv = typeof result === "string" ? result : result.csv;
+			const title = (typeof result === "string" ? "" : result.title) || await titlePromise || "";
 			return {
 				...matrixToRecords(parseCsv(csv)),
 				ref,
@@ -629,6 +675,11 @@ var DB_NAME = "lotkeep";
 var DB_VERSION = 1;
 var STORE = "kv";
 var CATALOG_KEY = "catalog.v1";
+var LEGACY_DB_NAMES = [
+	"lotkeep",
+	"lotkeep-catalog",
+	"depo-lot-takip"
+];
 function canUseLocalStorage() {
 	if (typeof window === "undefined") return false;
 	try {
@@ -688,6 +739,26 @@ function saveSettings(settings) {
 		window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 	} catch {}
 }
+function pruneLegacyLocalStorage() {
+	if (!canUseLocalStorage()) return;
+	const keys = [];
+	for (let i = 0; i < window.localStorage.length; i += 1) {
+		const key = window.localStorage.key(i);
+		if (key) keys.push(key);
+	}
+	for (const key of keys) {
+		if (key === "lotkeep.settings.v1") continue;
+		if (key.startsWith("lotkeep") || key.startsWith("depo-lot") || key.startsWith("depo_lot")) window.localStorage.removeItem(key);
+	}
+}
+var currentDb = null;
+function closeDb() {
+	if (!currentDb) return;
+	try {
+		currentDb.close();
+	} catch {}
+	currentDb = null;
+}
 function openDb() {
 	return new Promise((resolve, reject) => {
 		const req = indexedDB.open(DB_NAME, DB_VERSION);
@@ -695,23 +766,44 @@ function openDb() {
 			const db = req.result;
 			if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
 		};
-		req.onsuccess = () => resolve(req.result);
+		req.onsuccess = () => {
+			currentDb = req.result;
+			currentDb.onversionchange = () => closeDb();
+			resolve(currentDb);
+		};
 		req.onerror = () => reject(req.error ?? /* @__PURE__ */ new Error("IndexedDB failed"));
 	});
+}
+function deleteDatabase(name) {
+	return new Promise((resolve) => {
+		const req = indexedDB.deleteDatabase(name);
+		const timer = window.setTimeout(resolve, 1200);
+		const done = () => {
+			window.clearTimeout(timer);
+			resolve();
+		};
+		req.onsuccess = done;
+		req.onerror = done;
+		req.onblocked = done;
+	});
+}
+async function wipeCatalogStorage() {
+	pruneLegacyLocalStorage();
+	if (!canUseIndexedDb()) return;
+	closeDb();
+	for (const name of LEGACY_DB_NAMES) await deleteDatabase(name);
 }
 async function loadCatalog() {
 	if (!canUseIndexedDb()) return null;
 	try {
 		const db = await openDb();
 		return await new Promise((resolve, reject) => {
-			const tx = db.transaction(STORE, "readonly");
-			const req = tx.objectStore(STORE).get(CATALOG_KEY);
+			const req = db.transaction(STORE, "readonly").objectStore(STORE).get(CATALOG_KEY);
 			req.onsuccess = () => {
 				const value = req.result;
 				resolve(value ?? null);
 			};
 			req.onerror = () => reject(req.error);
-			tx.oncomplete = () => db.close();
 		});
 	} catch {
 		return null;
@@ -722,28 +814,19 @@ async function saveCatalog(catalog) {
 	const db = await openDb();
 	await new Promise((resolve, reject) => {
 		const tx = db.transaction(STORE, "readwrite");
-		tx.objectStore(STORE).put(catalog, CATALOG_KEY);
-		tx.oncomplete = () => {
-			db.close();
-			resolve();
-		};
+		const store = tx.objectStore(STORE);
+		store.clear();
+		store.put(catalog, CATALOG_KEY);
+		tx.oncomplete = () => resolve();
 		tx.onerror = () => reject(tx.error);
 	});
 }
+async function replaceCatalog(catalog) {
+	await wipeCatalogStorage();
+	await saveCatalog(catalog);
+}
 async function clearCatalog() {
-	if (!canUseIndexedDb()) return;
-	try {
-		const db = await openDb();
-		await new Promise((resolve, reject) => {
-			const tx = db.transaction(STORE, "readwrite");
-			tx.objectStore(STORE).delete(CATALOG_KEY);
-			tx.oncomplete = () => {
-				db.close();
-				resolve();
-			};
-			tx.onerror = () => reject(tx.error);
-		});
-	} catch {}
+	await wipeCatalogStorage();
 }
 var LOCALES = [
 	"tr",
@@ -964,13 +1047,13 @@ function localeTag(locale) {
 	if (locale === "de") return "de-DE";
 	return "en-US";
 }
-function applyChrome(locale, theme, title) {
+function applyChrome(locale, theme) {
 	if (typeof document === "undefined") return;
 	const root = document.documentElement;
 	root.classList.toggle("dark", theme === "dark");
 	root.lang = locale;
 	root.style.colorScheme = theme === "dark" ? "dark" : "light";
-	document.title = title;
+	document.title = t(locale, "appName");
 	document.querySelector("meta[name=\"theme-color\"]")?.setAttribute("content", theme === "dark" ? "#0c0d0f" : "#ffffff");
 }
 function chromeTitle(settings) {
@@ -1003,7 +1086,7 @@ function LotKeepApp() {
 	const [busy, setBusy] = (0, import_react.useState)(false);
 	const [error, setError] = (0, import_react.useState)(null);
 	(0, import_react.useEffect)(() => {
-		applyChrome(DEFAULT_SETTINGS.locale, DEFAULT_SETTINGS.theme, t("tr", "appName"));
+		applyChrome(DEFAULT_SETTINGS.locale, DEFAULT_SETTINGS.theme);
 		let cancelled = false;
 		(async () => {
 			try {
@@ -1020,7 +1103,7 @@ function LotKeepApp() {
 				}
 				if (!stored.catalogTitle && stored.source) stored.catalogTitle = stored.source.kind === "file" ? stored.source.fileName : stored.source.title || t(stored.locale, "googleSheet");
 				saveSettings(stored);
-				applyChrome(stored.locale, stored.theme, chromeTitle(stored));
+				applyChrome(stored.locale, stored.theme);
 				if (!stored.source && data) clearCatalog();
 				if (!stored.source && (stored.columns || stored.loadedAt)) {
 					stored.columns = null;
@@ -1032,7 +1115,7 @@ function LotKeepApp() {
 				setScreen(usable && stored.columns ? "lookup" : "source");
 			} catch {
 				if (cancelled) return;
-				applyChrome(DEFAULT_SETTINGS.locale, DEFAULT_SETTINGS.theme, t("tr", "appName"));
+				applyChrome(DEFAULT_SETTINGS.locale, DEFAULT_SETTINGS.theme);
 				setCatalog(null);
 				setScreen("source");
 			}
@@ -1044,12 +1127,12 @@ function LotKeepApp() {
 	const persistSettings = (0, import_react.useCallback)((next) => {
 		setSettings(next);
 		saveSettings(next);
-		applyChrome(next.locale, next.theme, chromeTitle(next));
+		applyChrome(next.locale, next.theme);
 	}, []);
 	const persist = (0, import_react.useCallback)((next, nextCatalog) => {
 		persistSettings(next);
 		setCatalog(nextCatalog);
-		if (nextCatalog) saveCatalog(nextCatalog);
+		if (nextCatalog) replaceCatalog(nextCatalog);
 		else clearCatalog();
 	}, [persistSettings]);
 	const onLoaded = (0, import_react.useCallback)((nextCatalog, source, columns) => {
@@ -1239,7 +1322,7 @@ function LookupView({ catalog, settings, index, tr, onOpenSource }) {
 	]);
 	const showHits = liveHits.length > 0 ? liveHits : query.trim() && committed.trim() === query.trim() ? committedHits : [];
 	const showMiss = Boolean(committed.trim()) && committed.trim() === query.trim() && liveHits.length === 0;
-	const sourceLabel = settings.source?.kind === "sheets" ? tr("googleSheet") : settings.source?.kind === "file" ? settings.source.fileName : tr("catalog");
+	const sourceLabel = settings.catalogTitle || (settings.source?.kind === "file" ? settings.source.fileName : settings.source?.kind === "sheets" ? settings.source.title || tr("googleSheet") : tr("catalog"));
 	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
 		className: "flex flex-1 flex-col",
 		children: [
@@ -1342,52 +1425,45 @@ function LotTag({ hit, tr, defaultOpen }) {
 				className: "lot-tag-hole",
 				"aria-hidden": "true"
 			}),
-			/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
-				type: "button",
-				className: "w-full text-left",
-				onClick: () => void copyLot(),
-				"aria-label": `${tr("lot")} ${hit.lot}. ${tr("copy")}`,
-				children: [
-					/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-						className: "flex items-start justify-between gap-3 pl-6",
-						children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
-							className: "text-xs font-medium uppercase tracking-[0.16em] text-ink-muted",
-							children: tr("lot")
-						}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", {
-							className: "inline-flex min-h-11 items-center gap-1.5 text-xs font-medium text-ink-muted",
-							children: [copied ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Check, { className: "size-3.5" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Copy, { className: "size-3.5" }), copied ? tr("copied") : tr("copy")]
-						})]
-					}),
-					/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
-						className: "mt-3 break-all font-mono text-lot font-medium leading-tight tracking-tight text-ink",
-						children: hit.lot || "—"
-					}),
-					hit.article ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
-						className: "mt-2 pl-6 font-mono text-sm text-ink",
-						children: hit.article
-					}) : null,
-					hit.name && hit.via === "name" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
-						className: "mt-1 pl-6 text-sm text-ink",
-						children: hit.name
-					}) : null
-				]
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+				className: "text-xs font-medium uppercase tracking-[0.18em] text-ink-muted",
+				children: tr("lot")
 			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+				className: "mt-3 break-all font-mono text-lot font-medium leading-none tracking-tight text-ink",
+				children: hit.lot || "—"
+			}),
+			hit.article ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+				className: "mt-3 break-all font-mono text-sm text-ink",
+				children: hit.article
+			}) : null,
+			hit.name ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+				className: "mt-1 break-words text-sm text-ink-muted",
+				children: hit.name
+			}) : null,
 			viaLabel ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("p", {
-				className: "mt-2 pl-6 text-xs text-ink-muted",
+				className: "mt-2 text-xs text-ink-muted",
 				children: [
 					tr("matchedOn"),
 					": ",
 					viaLabel
 				]
 			}) : null,
+			/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
+				type: "button",
+				className: "mx-auto mt-5 inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg px-4 text-xs font-medium text-ink-muted shadow-[var(--shadow-border)]",
+				onClick: () => void copyLot(),
+				"aria-label": `${tr("lot")} ${hit.lot}. ${tr("copy")}`,
+				children: [copied ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Check, { className: "size-3.5" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Copy, { className: "size-3.5" }), copied ? tr("copied") : tr("copy")]
+			}),
 			open ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-				className: "mt-5 space-y-4 border-t border-ink/10 pt-4",
+				className: "mt-5 border-t border-ink/10 pt-4 text-left",
 				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("dl", {
-					className: "space-y-1.5 text-sm",
+					className: "space-y-2 text-sm",
 					children: hit.fields.map((field) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-						className: "flex justify-between gap-4",
+						className: "grid grid-cols-2 gap-3",
 						children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("dt", {
-							className: "shrink-0 text-ink-muted",
+							className: "text-ink-muted",
 							children: field.label
 						}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("dd", {
 							className: "break-all text-right font-mono text-ink",
@@ -1395,20 +1471,20 @@ function LotTag({ hit, tr, defaultOpen }) {
 						})]
 					}, field.label))
 				}), hit.others.map((row, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-					className: "border-t border-ink/10 pt-4",
+					className: "mt-4 border-t border-ink/10 pt-4",
 					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("p", {
-						className: "mb-2 text-xs font-medium uppercase tracking-[0.14em] text-ink-muted",
+						className: "mb-2 text-center text-xs font-medium uppercase tracking-[0.14em] text-ink-muted",
 						children: [
 							tr("otherRows"),
 							" ",
 							i + 2
 						]
 					}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("dl", {
-						className: "space-y-1.5 text-sm",
+						className: "space-y-2 text-sm",
 						children: row.fields.map((field) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-							className: "flex justify-between gap-4",
+							className: "grid grid-cols-2 gap-3",
 							children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("dt", {
-								className: "shrink-0 text-ink-muted",
+								className: "text-ink-muted",
 								children: field.label
 							}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("dd", {
 								className: "break-all text-right font-mono text-ink",
@@ -1418,7 +1494,7 @@ function LotTag({ hit, tr, defaultOpen }) {
 					})]
 				}, i))]
 			}) : extraCount > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("p", {
-				className: "mt-3 pl-6 text-xs text-ink-muted",
+				className: "mt-3 text-xs text-ink-muted",
 				children: [
 					"+",
 					extraCount,
@@ -1429,7 +1505,7 @@ function LotTag({ hit, tr, defaultOpen }) {
 			/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
 				type: "button",
 				onClick: () => setOpen((v) => !v),
-				className: "mt-3 inline-flex min-h-11 items-center gap-1 pl-6 text-xs font-medium text-ink-muted",
+				className: "mx-auto mt-2 inline-flex min-h-11 items-center justify-center gap-1 text-xs font-medium text-ink-muted",
 				"aria-expanded": open,
 				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(ChevronDown, { className: cn("size-3.5 transition-transform duration-150", open && "rotate-180") }), open ? tr("hideDetails") : tr("showDetails")]
 			})
@@ -1470,7 +1546,7 @@ function SourceView({ settings, catalog, busy, error, tr, setBusy, setError, set
 		pendingLoad.current = action;
 		setConfirmKind("replace");
 	}
-	async function loadSheet(urlOverride) {
+	async function loadSheet(urlOverride, opts) {
 		const url = (urlOverride ?? settings.sheetUrl).trim();
 		if (!url) {
 			setError(tr("pasteLinkFirst"));
@@ -1484,7 +1560,7 @@ function SourceView({ settings, catalog, busy, error, tr, setBusy, setError, set
 		setError(null);
 		try {
 			const loaded = await loadGoogleSheet(url);
-			const mapping = detectColumns(loaded.headers);
+			const mapping = opts?.preserveColumns ? reuseColumns(settings.columns, loaded.headers) : detectColumns(loaded.headers);
 			onLoaded({
 				headers: loaded.headers,
 				rows: loaded.rows
@@ -1695,7 +1771,7 @@ function SourceView({ settings, catalog, busy, error, tr, setBusy, setError, set
 							children: tr("lookUp")
 						}), settings.source?.kind === "sheets" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Button, {
 							variant: "secondary",
-							onClick: () => void loadSheet(settings.source?.kind === "sheets" ? settings.source.url : void 0),
+							onClick: () => void loadSheet(settings.source?.kind === "sheets" ? settings.source.url : void 0, { preserveColumns: true }),
 							disabled: busy,
 							children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(RefreshCw, {}), tr("refresh")]
 						}) : null]
@@ -1707,7 +1783,7 @@ function SourceView({ settings, catalog, busy, error, tr, setBusy, setError, set
 							" ",
 							tr("rows"),
 							settings.source?.kind === "file" ? ` · ${settings.source.fileName}` : null,
-							settings.source?.kind === "sheets" ? ` · ${tr("googleSheet")}` : null
+							settings.source?.kind === "sheets" ? ` · ${settings.catalogTitle || settings.source.title || tr("googleSheet")}` : null
 						]
 					}),
 					/* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {

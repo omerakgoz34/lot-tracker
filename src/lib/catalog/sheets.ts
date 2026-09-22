@@ -118,6 +118,59 @@ function loadViaGvizJsonp(id: string, gid: string): Promise<{ headers: string[];
   });
 }
 
+function usableTitle(raw: string): string {
+  const title = raw
+    .replace(/\s+[-–—]\s+Google.*$/i, "")
+    .replace(/\.(xlsx|xls|csv|ods|tsv)$/i, "")
+    .trim();
+  if (!title) return "";
+  if (/^google\s*(sheets?|e-?tablolar|spreadsheets?|docs|drive)$/i.test(title)) return "";
+  return title;
+}
+
+function loadSheetTitleJsonp(id: string): Promise<string> {
+  return new Promise((resolve) => {
+    const callback = `__depoLotTitle${Math.random().toString(36).slice(2)}`;
+    const script = document.createElement("script");
+    let settled = false;
+    const timeout = window.setTimeout(() => finish(""), 8000);
+
+    function finish(title: string) {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeout);
+      script.remove();
+      delete (window as unknown as Record<string, unknown>)[callback];
+      resolve(title);
+    }
+
+    (window as unknown as Record<string, unknown>)[callback] = (data: {
+      feed?: { title?: { $t?: string } };
+    }) => {
+      const raw = data?.feed?.title?.$t ?? "";
+      finish(usableTitle(raw));
+    };
+
+    script.src = `https://spreadsheets.google.com/feeds/worksheets/${id}/public/basic?alt=json-in-script&callback=${callback}`;
+    script.async = true;
+    script.onerror = () => finish("");
+    document.head.appendChild(script);
+  });
+}
+
+async function resolveSheetTitle(id: string): Promise<string> {
+  const attempts: Array<Promise<string>> = [loadSheetTitleJsonp(id)];
+  if (!import.meta.env.VITE_PORTABLE) {
+    attempts.push(
+      import("./fetch-sheet")
+        .then((mod) => mod.fetchGoogleSheetTitle({ data: { id } }))
+        .catch(() => ""),
+    );
+  }
+  const results = await Promise.all(attempts);
+  return results.map(usableTitle).find(Boolean) ?? "";
+}
+
 export async function loadGoogleSheet(url: string): Promise<{
   headers: string[];
   rows: RawRow[];
@@ -129,11 +182,7 @@ export async function loadGoogleSheet(url: string): Promise<{
     throw new Error("Paste a Google Sheets link from the address bar.");
   }
 
-  const titlePromise = import.meta.env.VITE_PORTABLE
-    ? Promise.resolve("")
-    : import("./fetch-sheet")
-        .then((mod) => mod.fetchGoogleSheetTitle({ data: { id: ref.id } }))
-        .catch(() => "");
+  const titlePromise = resolveSheetTitle(ref.id);
 
   try {
     const parsed = await loadViaGvizJsonp(ref.id, ref.gid);
@@ -142,8 +191,10 @@ export async function loadGoogleSheet(url: string): Promise<{
   } catch (err) {
     if (!import.meta.env.VITE_PORTABLE) {
       const { fetchGoogleSheetCsv } = await import("./fetch-sheet");
-      const csv = await fetchGoogleSheetCsv({ data: ref });
-      const title = (await titlePromise) || "";
+      const result = await fetchGoogleSheetCsv({ data: ref });
+      const csv = typeof result === "string" ? result : result.csv;
+      const fromCsv = typeof result === "string" ? "" : result.title;
+      const title = fromCsv || (await titlePromise) || "";
       return { ...matrixToRecords(parseCsv(csv)), ref, title };
     }
     throw err;

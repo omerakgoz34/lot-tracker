@@ -269,6 +269,24 @@ export function detectColumns(headers: string[]): ColumnMapping {
   };
 }
 
+export function reuseColumns(existing: ColumnMapping | null, headers: string[]): ColumnMapping {
+  const detected = detectColumns(headers);
+  if (!existing) return detected;
+  const has = (header: string | null | undefined): header is string =>
+    Boolean(header && headers.includes(header));
+  return {
+    article: has(existing.article) ? existing.article : detected.article,
+    lot: has(existing.lot) ? existing.lot : detected.lot,
+    alternative:
+      existing.alternative === null
+        ? null
+        : has(existing.alternative)
+          ? existing.alternative
+          : detected.alternative,
+    name: existing.name === null ? null : has(existing.name) ? existing.name : detected.name,
+  };
+}
+
 export type LookupIndex = {
   article: Map<string, RawRow[]>;
   alternative: Map<string, RawRow[]>;

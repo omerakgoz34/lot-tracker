@@ -17,13 +17,13 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { parseWorkbook } from "@/lib/catalog/file";
-import { buildIndex, detectColumns, lookupExact } from "@/lib/catalog/parse";
+import { buildIndex, detectColumns, lookupExact, reuseColumns } from "@/lib/catalog/parse";
 import { loadGoogleSheet, parseSheetsUrl } from "@/lib/catalog/sheets";
 import {
   clearCatalog,
   loadCatalog,
   loadSettings,
-  saveCatalog,
+  replaceCatalog,
   saveSettings,
 } from "@/lib/catalog/storage";
 import type { Catalog, ColumnMapping, MatchHit, Settings, Source } from "@/lib/catalog/types";
@@ -42,13 +42,13 @@ import { cn } from "@/lib/utils";
 
 type Screen = "lookup" | "source";
 
-function applyChrome(locale: Locale, theme: Theme, title: string) {
+function applyChrome(locale: Locale, theme: Theme) {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
   root.classList.toggle("dark", theme === "dark");
   root.lang = locale;
   root.style.colorScheme = theme === "dark" ? "dark" : "light";
-  document.title = title;
+  document.title = t(locale, "appName");
   const meta = document.querySelector('meta[name="theme-color"]');
   meta?.setAttribute("content", theme === "dark" ? "#0c0d0f" : "#ffffff");
 }
@@ -86,7 +86,7 @@ export function LotKeepApp() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    applyChrome(DEFAULT_SETTINGS.locale, DEFAULT_SETTINGS.theme, t("tr", "appName"));
+    applyChrome(DEFAULT_SETTINGS.locale, DEFAULT_SETTINGS.theme);
     let cancelled = false;
     (async () => {
       try {
@@ -107,7 +107,7 @@ export function LotKeepApp() {
               : stored.source.title || t(stored.locale, "googleSheet");
         }
         saveSettings(stored);
-        applyChrome(stored.locale, stored.theme, chromeTitle(stored));
+        applyChrome(stored.locale, stored.theme);
         if (!stored.source && data) void clearCatalog();
         if (!stored.source && (stored.columns || stored.loadedAt)) {
           stored.columns = null;
@@ -119,7 +119,7 @@ export function LotKeepApp() {
         setScreen(usable && stored.columns ? "lookup" : "source");
       } catch {
         if (cancelled) return;
-        applyChrome(DEFAULT_SETTINGS.locale, DEFAULT_SETTINGS.theme, t("tr", "appName"));
+        applyChrome(DEFAULT_SETTINGS.locale, DEFAULT_SETTINGS.theme);
         setCatalog(null);
         setScreen("source");
       }
@@ -132,13 +132,13 @@ export function LotKeepApp() {
   const persistSettings = useCallback((next: Settings) => {
     setSettings(next);
     saveSettings(next);
-    applyChrome(next.locale, next.theme, chromeTitle(next));
+    applyChrome(next.locale, next.theme);
   }, []);
 
   const persist = useCallback((next: Settings, nextCatalog: Catalog | null) => {
     persistSettings(next);
     setCatalog(nextCatalog);
-    if (nextCatalog) void saveCatalog(nextCatalog);
+    if (nextCatalog) void replaceCatalog(nextCatalog);
     else void clearCatalog();
   }, [persistSettings]);
 
@@ -345,12 +345,12 @@ function LookupView({
     committed.trim() === query.trim() &&
     liveHits.length === 0;
 
-  const sourceLabel =
-    settings.source?.kind === "sheets"
-      ? tr("googleSheet")
-      : settings.source?.kind === "file"
-        ? settings.source.fileName
-        : tr("catalog");
+  const sourceLabel = settings.catalogTitle
+    || (settings.source?.kind === "file"
+      ? settings.source.fileName
+      : settings.source?.kind === "sheets"
+        ? settings.source.title || tr("googleSheet")
+        : tr("catalog"));
 
   return (
     <div className="flex flex-1 flex-col">
@@ -462,53 +462,47 @@ function LotTag({
   return (
     <article className="lot-tag">
       <span className="lot-tag-hole" aria-hidden="true" />
-      <button
-        type="button"
-        className="w-full text-left"
-        onClick={() => void copyLot()}
-        aria-label={`${tr("lot")} ${hit.lot}. ${tr("copy")}`}
-      >
-        <div className="flex items-start justify-between gap-3 pl-6">
-          <p className="text-xs font-medium uppercase tracking-[0.16em] text-ink-muted">{tr("lot")}</p>
-          <span className="inline-flex min-h-11 items-center gap-1.5 text-xs font-medium text-ink-muted">
-            {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-            {copied ? tr("copied") : tr("copy")}
-          </span>
-        </div>
-        <p className="mt-3 break-all font-mono text-lot font-medium leading-tight tracking-tight text-ink">
-          {hit.lot || "—"}
-        </p>
-        {hit.article ? (
-          <p className="mt-2 pl-6 font-mono text-sm text-ink">{hit.article}</p>
-        ) : null}
-        {hit.name && hit.via === "name" ? (
-          <p className="mt-1 pl-6 text-sm text-ink">{hit.name}</p>
-        ) : null}
-      </button>
+      <p className="text-xs font-medium uppercase tracking-[0.18em] text-ink-muted">{tr("lot")}</p>
+      <p className="mt-3 break-all font-mono text-lot font-medium leading-none tracking-tight text-ink">
+        {hit.lot || "—"}
+      </p>
+      {hit.article ? (
+        <p className="mt-3 break-all font-mono text-sm text-ink">{hit.article}</p>
+      ) : null}
+      {hit.name ? <p className="mt-1 break-words text-sm text-ink-muted">{hit.name}</p> : null}
       {viaLabel ? (
-        <p className="mt-2 pl-6 text-xs text-ink-muted">
+        <p className="mt-2 text-xs text-ink-muted">
           {tr("matchedOn")}: {viaLabel}
         </p>
       ) : null}
+      <button
+        type="button"
+        className="mx-auto mt-5 inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg px-4 text-xs font-medium text-ink-muted shadow-[var(--shadow-border)]"
+        onClick={() => void copyLot()}
+        aria-label={`${tr("lot")} ${hit.lot}. ${tr("copy")}`}
+      >
+        {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+        {copied ? tr("copied") : tr("copy")}
+      </button>
       {open ? (
-        <div className="mt-5 space-y-4 border-t border-ink/10 pt-4">
-          <dl className="space-y-1.5 text-sm">
+        <div className="mt-5 border-t border-ink/10 pt-4 text-left">
+          <dl className="space-y-2 text-sm">
             {hit.fields.map((field) => (
-              <div key={field.label} className="flex justify-between gap-4">
-                <dt className="shrink-0 text-ink-muted">{field.label}</dt>
+              <div key={field.label} className="grid grid-cols-2 gap-3">
+                <dt className="text-ink-muted">{field.label}</dt>
                 <dd className="break-all text-right font-mono text-ink">{field.value}</dd>
               </div>
             ))}
           </dl>
           {hit.others.map((row, i) => (
-            <div key={i} className="border-t border-ink/10 pt-4">
-              <p className="mb-2 text-xs font-medium uppercase tracking-[0.14em] text-ink-muted">
+            <div key={i} className="mt-4 border-t border-ink/10 pt-4">
+              <p className="mb-2 text-center text-xs font-medium uppercase tracking-[0.14em] text-ink-muted">
                 {tr("otherRows")} {i + 2}
               </p>
-              <dl className="space-y-1.5 text-sm">
+              <dl className="space-y-2 text-sm">
                 {row.fields.map((field) => (
-                  <div key={field.label} className="flex justify-between gap-4">
-                    <dt className="shrink-0 text-ink-muted">{field.label}</dt>
+                  <div key={field.label} className="grid grid-cols-2 gap-3">
+                    <dt className="text-ink-muted">{field.label}</dt>
                     <dd className="break-all text-right font-mono text-ink">{field.value}</dd>
                   </div>
                 ))}
@@ -517,14 +511,14 @@ function LotTag({
           ))}
         </div>
       ) : extraCount > 0 ? (
-        <p className="mt-3 pl-6 text-xs text-ink-muted">
+        <p className="mt-3 text-xs text-ink-muted">
           +{extraCount} {tr("otherRows").toLowerCase()}
         </p>
       ) : null}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="mt-3 inline-flex min-h-11 items-center gap-1 pl-6 text-xs font-medium text-ink-muted"
+        className="mx-auto mt-2 inline-flex min-h-11 items-center justify-center gap-1 text-xs font-medium text-ink-muted"
         aria-expanded={open}
       >
         <ChevronDown className={cn("size-3.5 transition-transform duration-150", open && "rotate-180")} />
@@ -593,7 +587,7 @@ function SourceView({
     setConfirmKind("replace");
   }
 
-  async function loadSheet(urlOverride?: string) {
+  async function loadSheet(urlOverride?: string, opts?: { preserveColumns?: boolean }) {
     const url = (urlOverride ?? settings.sheetUrl).trim();
     if (!url) {
       setError(tr("pasteLinkFirst"));
@@ -607,7 +601,9 @@ function SourceView({
     setError(null);
     try {
       const loaded = await loadGoogleSheet(url);
-      const mapping = detectColumns(loaded.headers);
+      const mapping = opts?.preserveColumns
+        ? reuseColumns(settings.columns, loaded.headers)
+        : detectColumns(loaded.headers);
       onLoaded(
         { headers: loaded.headers, rows: loaded.rows },
         { kind: "sheets", url, id: loaded.ref.id, gid: loaded.ref.gid, title: loaded.title },
@@ -779,7 +775,12 @@ function SourceView({
             {settings.source?.kind === "sheets" ? (
               <Button
                 variant="secondary"
-                onClick={() => void loadSheet(settings.source?.kind === "sheets" ? settings.source.url : undefined)}
+                onClick={() =>
+                  void loadSheet(
+                    settings.source?.kind === "sheets" ? settings.source.url : undefined,
+                    { preserveColumns: true },
+                  )
+                }
                 disabled={busy}
               >
                 <RefreshCw />
@@ -790,7 +791,9 @@ function SourceView({
           <p className="mt-3 px-1 text-xs text-subtle">
             {catalog.rows.length.toLocaleString(localeTag(settings.locale))} {tr("rows")}
             {settings.source?.kind === "file" ? ` · ${settings.source.fileName}` : null}
-            {settings.source?.kind === "sheets" ? ` · ${tr("googleSheet")}` : null}
+            {settings.source?.kind === "sheets"
+              ? ` · ${settings.catalogTitle || settings.source.title || tr("googleSheet")}`
+              : null}
           </p>
           <button
             type="button"

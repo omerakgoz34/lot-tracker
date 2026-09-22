@@ -4,6 +4,7 @@ const DB_NAME = "lotkeep";
 const DB_VERSION = 1;
 const STORE = "kv";
 const CATALOG_KEY = "catalog.v1";
+const LEGACY_DB_NAMES = ["lotkeep", "lotkeep-catalog", "depo-lot-takip"];
 
 function canUseLocalStorage(): boolean {
   if (typeof window === "undefined") return false;
@@ -72,6 +73,37 @@ export function saveSettings(settings: Settings): void {
   }
 }
 
+function pruneLegacyLocalStorage(): void {
+  if (!canUseLocalStorage()) return;
+  const keys: string[] = [];
+  for (let i = 0; i < window.localStorage.length; i += 1) {
+    const key = window.localStorage.key(i);
+    if (key) keys.push(key);
+  }
+  for (const key of keys) {
+    if (key === SETTINGS_KEY) continue;
+    if (
+      key.startsWith("lotkeep") ||
+      key.startsWith("depo-lot") ||
+      key.startsWith("depo_lot")
+    ) {
+      window.localStorage.removeItem(key);
+    }
+  }
+}
+
+let currentDb: IDBDatabase | null = null;
+
+function closeDb(): void {
+  if (!currentDb) return;
+  try {
+    currentDb.close();
+  } catch {
+    // ignore
+  }
+  currentDb = null;
+}
+
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
@@ -79,9 +111,36 @@ function openDb(): Promise<IDBDatabase> {
       const db = req.result;
       if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
     };
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => {
+      currentDb = req.result;
+      currentDb.onversionchange = () => closeDb();
+      resolve(currentDb);
+    };
     req.onerror = () => reject(req.error ?? new Error("IndexedDB failed"));
   });
+}
+
+function deleteDatabase(name: string): Promise<void> {
+  return new Promise((resolve) => {
+    const req = indexedDB.deleteDatabase(name);
+    const timer = window.setTimeout(resolve, 1200);
+    const done = () => {
+      window.clearTimeout(timer);
+      resolve();
+    };
+    req.onsuccess = done;
+    req.onerror = done;
+    req.onblocked = done;
+  });
+}
+
+export async function wipeCatalogStorage(): Promise<void> {
+  pruneLegacyLocalStorage();
+  if (!canUseIndexedDb()) return;
+  closeDb();
+  for (const name of LEGACY_DB_NAMES) {
+    await deleteDatabase(name);
+  }
 }
 
 export async function loadCatalog(): Promise<Catalog | null> {
@@ -96,7 +155,6 @@ export async function loadCatalog(): Promise<Catalog | null> {
         resolve(value ?? null);
       };
       req.onerror = () => reject(req.error);
-      tx.oncomplete = () => db.close();
     });
   } catch {
     return null;
@@ -108,29 +166,19 @@ export async function saveCatalog(catalog: Catalog): Promise<void> {
   const db = await openDb();
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(STORE, "readwrite");
-    tx.objectStore(STORE).put(catalog, CATALOG_KEY);
-    tx.oncomplete = () => {
-      db.close();
-      resolve();
-    };
+    const store = tx.objectStore(STORE);
+    store.clear();
+    store.put(catalog, CATALOG_KEY);
+    tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
 }
 
+export async function replaceCatalog(catalog: Catalog): Promise<void> {
+  await wipeCatalogStorage();
+  await saveCatalog(catalog);
+}
+
 export async function clearCatalog(): Promise<void> {
-  if (!canUseIndexedDb()) return;
-  try {
-    const db = await openDb();
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(STORE, "readwrite");
-      tx.objectStore(STORE).delete(CATALOG_KEY);
-      tx.oncomplete = () => {
-        db.close();
-        resolve();
-      };
-      tx.onerror = () => reject(tx.error);
-    });
-  } catch {
-    // ignore
-  }
+  await wipeCatalogStorage();
 }
