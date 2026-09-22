@@ -1,11 +1,11 @@
 import { i as __toESM } from "../_runtime.mjs";
 import { n as require_react } from "../_libs/@radix-ui/react-compose-refs+[...].mjs";
 import { v as require_jsx_runtime } from "../_libs/@tanstack/react-router+[...].mjs";
-import { a as RefreshCw, c as FileSpreadsheet, d as ArrowLeft, i as Settings2, l as Copy, o as Moon, r as Sun, s as LoaderCircle, t as Upload, u as Check } from "../_libs/lucide-react.mjs";
+import { a as RefreshCw, c as FileSpreadsheet, d as Check, f as ArrowLeft, i as Settings2, l as Copy, o as Moon, r as Sun, s as LoaderCircle, t as Upload, u as ChevronDown } from "../_libs/lucide-react.mjs";
 import { n as clsx, t as cva } from "../_libs/class-variance-authority+clsx.mjs";
 import { t as Slot } from "../_libs/radix-ui__react-slot.mjs";
 import { t as twMerge } from "../_libs/tailwind-merge.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/routes-CMxXjG2k.js
+//#region node_modules/.nitro/vite/services/ssr/assets/routes-fmat0k5f.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 function cn(...inputs) {
@@ -43,6 +43,63 @@ var Button = import_react.forwardRef(({ className, variant, size, asChild = fals
 	});
 });
 Button.displayName = "Button";
+function ConfirmDialog({ open, title, body, confirmLabel, cancelLabel, danger = true, onConfirm, onCancel }) {
+	(0, import_react.useEffect)(() => {
+		if (!open) return;
+		const onKey = (e) => {
+			if (e.key === "Escape") onCancel();
+		};
+		window.addEventListener("keydown", onKey);
+		const prev = document.body.style.overflow;
+		document.body.style.overflow = "hidden";
+		return () => {
+			window.removeEventListener("keydown", onKey);
+			document.body.style.overflow = prev;
+		};
+	}, [open, onCancel]);
+	if (!open) return null;
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+		className: "fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center",
+		children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
+			type: "button",
+			className: "absolute inset-0 bg-ink/45",
+			"aria-label": cancelLabel,
+			onClick: onCancel
+		}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+			role: "alertdialog",
+			"aria-modal": "true",
+			"aria-labelledby": "confirm-title",
+			"aria-describedby": "confirm-body",
+			className: "relative w-full max-w-md rounded-3xl bg-card p-5 shadow-[var(--shadow-paper)]",
+			children: [
+				/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h2", {
+					id: "confirm-title",
+					className: "text-base font-medium tracking-tight text-foreground",
+					children: title
+				}),
+				/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+					id: "confirm-body",
+					className: "mt-2 text-sm leading-normal text-muted",
+					children: body
+				}),
+				/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+					className: "mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
+					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
+						variant: "secondary",
+						className: "sm:min-w-28",
+						onClick: onCancel,
+						children: cancelLabel
+					}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
+						variant: danger ? "danger" : "default",
+						className: "sm:min-w-28",
+						onClick: onConfirm,
+						children: confirmLabel
+					})]
+				})
+			]
+		})]
+	});
+}
 var Input = import_react.forwardRef(({ className, type, ...props }, ref) => {
 	return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", {
 		type,
@@ -202,6 +259,25 @@ function scoreHeader(header, kind) {
 		"batch no",
 		"batch number"
 	];
+	const nameExact = [
+		"name",
+		"product name",
+		"product",
+		"item name",
+		"item",
+		"description",
+		"desc",
+		"urun",
+		"urun adi",
+		"urun ad",
+		"malzeme adi",
+		"malzeme ad",
+		"aciklama",
+		"bezeichnung",
+		"artikelbezeichnung",
+		"produktname",
+		"produkt"
+	];
 	if (kind === "lot") {
 		if (lotExact.includes(h)) return 100;
 		if (/\blot\b/.test(h) || /\bbatch\b/.test(h) || /\bparti\b/.test(h)) return 70;
@@ -210,6 +286,11 @@ function scoreHeader(header, kind) {
 	if (kind === "alternative") {
 		if (altExact.includes(h)) return 100;
 		if (/\balt\b/.test(h) || h.includes("alternat") || h.includes("equiv")) return 70;
+		return 0;
+	}
+	if (kind === "name") {
+		if (nameExact.includes(h)) return 100;
+		if (h.includes("name") || h.includes("adi") || h.includes("aciklama") || h.includes("desc") || h.includes("bezeich")) return 70;
 		return 0;
 	}
 	if (articleExact.includes(h)) return 100;
@@ -221,13 +302,16 @@ function detectColumns(headers) {
 	let article = null;
 	let alternative = null;
 	let lot = null;
+	let name = null;
 	let articleScore = 0;
 	let altScore = 0;
 	let lotScore = 0;
+	let nameScore = 0;
 	for (const header of headers) {
 		const a = scoreHeader(header, "article");
 		const alt = scoreHeader(header, "alternative");
 		const l = scoreHeader(header, "lot");
+		const n = scoreHeader(header, "name");
 		if (a > articleScore) {
 			article = header;
 			articleScore = a;
@@ -239,6 +323,10 @@ function detectColumns(headers) {
 		if (l > lotScore) {
 			lot = header;
 			lotScore = l;
+		}
+		if (n > nameScore) {
+			name = header;
+			nameScore = n;
 		}
 	}
 	if (article && alternative && article === alternative) {
@@ -252,10 +340,12 @@ function detectColumns(headers) {
 	if (alternative && lot && alternative === lot) alternative = null;
 	const fallbackArticle = article ?? headers[0] ?? "";
 	const fallbackLot = lot && lot !== fallbackArticle ? lot : headers.find((h) => h !== fallbackArticle) ?? fallbackArticle;
+	if (name === fallbackArticle || name === fallbackLot || name === alternative) name = null;
 	return {
 		article: fallbackArticle,
 		alternative: alternative && alternative !== fallbackArticle && alternative !== fallbackLot ? alternative : null,
-		lot: fallbackLot
+		lot: fallbackLot,
+		name
 	};
 }
 function pushMap(map, key, row) {
@@ -266,6 +356,8 @@ function pushMap(map, key, row) {
 function buildIndex(rows, columns) {
 	const article = /* @__PURE__ */ new Map();
 	const alternative = /* @__PURE__ */ new Map();
+	const lot = /* @__PURE__ */ new Map();
+	const names = [];
 	for (const row of rows) {
 		const a = normalize(row[columns.article] ?? "");
 		if (a) pushMap(article, a, row);
@@ -273,10 +365,21 @@ function buildIndex(rows, columns) {
 			const alt = normalize(row[columns.alternative] ?? "");
 			if (alt) pushMap(alternative, alt, row);
 		}
+		const lotVal = normalize(row[columns.lot] ?? "");
+		if (lotVal) pushMap(lot, lotVal, row);
+		if (columns.name) {
+			const nameVal = normalize(row[columns.name] ?? "");
+			if (nameVal) names.push({
+				key: nameVal,
+				row
+			});
+		}
 	}
 	return {
 		article,
-		alternative
+		alternative,
+		lot,
+		names
 	};
 }
 function fieldsFor(row) {
@@ -296,29 +399,57 @@ function toHit(row, columns, via) {
 		lot: (row[columns.lot] ?? "").trim(),
 		article: (row[columns.article] ?? "").trim(),
 		alternative: columns.alternative ? (row[columns.alternative] ?? "").trim() : "",
+		name: columns.name ? (row[columns.name] ?? "").trim() : "",
 		via,
-		fields: fieldsFor(row)
+		fields: fieldsFor(row),
+		others: []
 	};
+}
+function rowKey(row) {
+	return JSON.stringify(row);
+}
+function groupHits(rows, columns, via) {
+	const groups = /* @__PURE__ */ new Map();
+	const order = [];
+	for (const row of rows) {
+		const lot = normalize(row[columns.lot] ?? "") || rowKey(row);
+		const list = groups.get(lot);
+		if (list) list.push(row);
+		else {
+			groups.set(lot, [row]);
+			order.push(lot);
+		}
+	}
+	return order.map((key) => {
+		const grouped = groups.get(key);
+		const primary = toHit(grouped[0], columns, via);
+		primary.others = grouped.slice(1).map((row) => ({ fields: fieldsFor(row) }));
+		return primary;
+	});
 }
 function lookupExact(query, index, columns) {
 	const q = normalize(query);
 	if (!q) return [];
 	const primary = index.article.get(q);
-	if (primary && primary.length > 0) return dedupeLots(primary.map((row) => toHit(row, columns, "article")));
+	if (primary && primary.length > 0) return groupHits(primary, columns, "article");
 	const alt = index.alternative.get(q);
-	if (alt && alt.length > 0) return dedupeLots(alt.map((row) => toHit(row, columns, "alternative")));
-	return [];
-}
-function dedupeLots(hits) {
-	const seen = /* @__PURE__ */ new Set();
-	const out = [];
-	for (const hit of hits) {
-		const key = normalize(hit.lot) || `${hit.article}::${hit.via}`;
-		if (seen.has(key)) continue;
-		seen.add(key);
-		out.push(hit);
+	if (alt && alt.length > 0) return groupHits(alt, columns, "alternative");
+	const lots = index.lot.get(q);
+	if (lots && lots.length > 0) return groupHits(lots, columns, "lot");
+	if (q.length >= 2 && index.names.length > 0) {
+		const matched = [];
+		const seen = /* @__PURE__ */ new Set();
+		for (const entry of index.names) {
+			if (!entry.key.includes(q)) continue;
+			const id = rowKey(entry.row);
+			if (seen.has(id)) continue;
+			seen.add(id);
+			matched.push(entry.row);
+			if (matched.length >= 40) break;
+		}
+		if (matched.length > 0) return groupHits(matched, columns, "name");
 	}
-	return out;
+	return [];
 }
 function isCsvLike(file) {
 	const name = file.name.toLowerCase();
@@ -450,17 +581,24 @@ function loadViaGvizJsonp(id, gid) {
 async function loadGoogleSheet(url) {
 	const ref = parseSheetsUrl(url);
 	if (!ref) throw new Error("Paste a Google Sheets link from the address bar.");
+	const titlePromise = import("./fetch-sheet-D9XHGnnJ.mjs").then((mod) => mod.fetchGoogleSheetTitle({ data: { id: ref.id } })).catch(() => "");
 	try {
+		const parsed = await loadViaGvizJsonp(ref.id, ref.gid);
+		const title = await titlePromise || "";
 		return {
-			...await loadViaGvizJsonp(ref.id, ref.gid),
-			ref
+			...parsed,
+			ref,
+			title
 		};
 	} catch (err) {
 		{
-			const { fetchGoogleSheetCsv } = await import("./fetch-sheet-DIVnCebg.mjs");
+			const { fetchGoogleSheetCsv } = await import("./fetch-sheet-D9XHGnnJ.mjs");
+			const csv = await fetchGoogleSheetCsv({ data: ref });
+			const title = await titlePromise || "";
 			return {
-				...matrixToRecords(parseCsv(await fetchGoogleSheetCsv({ data: ref }))),
-				ref
+				...matrixToRecords(parseCsv(csv)),
+				ref,
+				title
 			};
 		}
 	}
@@ -472,8 +610,21 @@ var DEFAULT_SETTINGS = {
 	columns: null,
 	loadedAt: null,
 	locale: "tr",
-	theme: "light"
+	theme: "light",
+	catalogTitle: "",
+	showDetails: false
 };
+function coerceColumns(raw) {
+	if (!raw || typeof raw !== "object") return null;
+	const c = raw;
+	if (typeof c.article !== "string" || typeof c.lot !== "string") return null;
+	return {
+		article: c.article,
+		alternative: typeof c.alternative === "string" && c.alternative ? c.alternative : null,
+		lot: c.lot,
+		name: typeof c.name === "string" && c.name ? c.name : null
+	};
+}
 var DB_NAME = "lotkeep";
 var DB_VERSION = 1;
 var STORE = "kv";
@@ -499,11 +650,13 @@ function parseSource(value) {
 		kind: "sheets",
 		url: src.url,
 		id: src.id,
-		gid: src.gid
+		gid: src.gid,
+		title: src.title
 	};
 	if (src.kind === "file" && src.fileName) return {
 		kind: "file",
-		fileName: src.fileName
+		fileName: src.fileName,
+		title: src.title
 	};
 	return null;
 }
@@ -518,10 +671,12 @@ function loadSettings() {
 		return {
 			sheetUrl: typeof parsed.sheetUrl === "string" ? parsed.sheetUrl : "",
 			source: parseSource(parsed.source),
-			columns: parsed.columns ?? null,
+			columns: coerceColumns(parsed.columns),
 			loadedAt: typeof parsed.loadedAt === "number" ? parsed.loadedAt : null,
 			locale,
-			theme
+			theme,
+			catalogTitle: typeof parsed.catalogTitle === "string" ? parsed.catalogTitle : "",
+			showDetails: parsed.showDetails === true
 		};
 	} catch {
 		return { ...DEFAULT_SETTINGS };
@@ -614,26 +769,29 @@ var dict = {
 		dropHint: "Çalışma kitabını buraya bırakın veya dosya seçin. .xlsx, .xls, .csv",
 		chooseFile: "Dosya seç",
 		columns: "Sütunlar",
-		columnsHint: "Arama yalnızca artikel, yoksa alternatif artikel sütununda tam eşleşme arar.",
+		columnsHint: "Artikel ve alternatif artikel tam eşleşir. Ürün adında metin aranır. LOT yalnızca tam eşleşir.",
 		article: "Artikel",
 		alternativeArticle: "Alternatif artikel",
+		productName: "Ürün adı",
 		lot: "LOT",
 		none: "Yok",
 		lookUp: "Artikel ara",
 		refresh: "Yenile",
 		rows: "satır",
 		clearCatalog: "Kayıtlı kataloğu sil",
-		articleNumber: "Artikel kodu",
-		articlePlaceholder: "Yapıştırın veya yazın, Enter",
-		idleHint: "Yalnızca artikel sütununda, yoksa alternatif artikel sütununda tam eşleşme.",
+		articleNumber: "Arama",
+		articlePlaceholder: "Artikel, ürün adı veya LOT",
+		idleHint: "Artikel ve alternatif artikel tam eşleşir. Ürün adında arama yapılır. LOT yalnızca tam eşleşir.",
 		products: "ürün",
 		pressToFocus: "Odaklamak için /",
 		copy: "Kopyala",
 		copied: "Kopyalandı",
 		matchedOn: "Eşleşme",
 		matchedAlt: "Alternatif artikel",
-		noLot: "Bu artikel için LOT yok",
-		missHint: "Yalnızca artikel veya alternatif artikel sütunlarındaki tam eşleşmeler kullanılır.",
+		matchedLot: "LOT",
+		matchedName: "Ürün adı",
+		noLot: "Eşleşme yok",
+		missHint: "Artikel, alternatif artikel ve LOT için tam eşleşme; ürün adı için metin araması kullanılır.",
 		pasteLinkFirst: "Önce bir Google Sheets bağlantısı yapıştırın.",
 		notSheetsLink: "Bu bir Google Sheets bağlantısı değil. Adres çubuğundaki URL’yi kullanın veya dosya yükleyin.",
 		loadFailed: "Tablo yüklenemedi.",
@@ -649,7 +807,18 @@ var dict = {
 		catalog: "Katalog",
 		language: "Dil",
 		appearance: "Görünüm",
-		prefs: "Ayarlar"
+		prefs: "Ayarlar",
+		showDetails: "Diğer ayrıntıları göster",
+		hideDetails: "Ayrıntıları gizle",
+		otherRows: "Diğer satırlar",
+		detailsOption: "Kartlarda diğer satırları göster",
+		confirmClearTitle: "Kayıtlı katalog silinsin mi?",
+		confirmClearBody: "Kayıtlı tablo ve sütun ayarları bu cihazdan silinir. Dil ve tema kalır. Bu işlem geri alınamaz.",
+		confirmReplaceTitle: "Mevcut katalog değiştirilsin mi?",
+		confirmReplaceBody: "Yeni tablo, bu cihazda kayıtlı kataloğun üzerine yazılır.",
+		confirmAction: "Sil",
+		confirmReplaceAction: "Değiştir",
+		cancel: "Vazgeç"
 	},
 	en: {
 		appName: "DEPO LOT TAKİP",
@@ -664,26 +833,29 @@ var dict = {
 		dropHint: "Drop a workbook here, or choose a file. .xlsx, .xls, .csv",
 		chooseFile: "Choose file",
 		columns: "Columns",
-		columnsHint: "Lookup uses exact matches on article, then alternative article.",
+		columnsHint: "Article and alternative article use exact match. Product names are searched as text. LOT is exact only.",
 		article: "Article",
 		alternativeArticle: "Alternative article",
+		productName: "Product name",
 		lot: "LOT",
 		none: "None",
 		lookUp: "Look up articles",
 		refresh: "Refresh",
 		rows: "rows",
 		clearCatalog: "Clear saved catalog",
-		articleNumber: "Article number",
-		articlePlaceholder: "Paste or type, then Enter",
-		idleHint: "Exact match on the article column, then the alternative article column.",
+		articleNumber: "Search",
+		articlePlaceholder: "Article, product name, or LOT",
+		idleHint: "Exact match on article, alternative article, and LOT. Product names match as text.",
 		products: "products",
 		pressToFocus: "Press / to focus",
 		copy: "Copy",
 		copied: "Copied",
 		matchedOn: "Matched on",
 		matchedAlt: "Alternative article",
-		noLot: "No LOT for this article",
-		missHint: "Only exact matches on the article or alternative article columns are used.",
+		matchedLot: "LOT",
+		matchedName: "Product name",
+		noLot: "No match",
+		missHint: "Article, alternative article, and LOT use exact match. Product names use text search.",
 		pasteLinkFirst: "Paste a Google Sheets link first.",
 		notSheetsLink: "That is not a Google Sheets link. Use the address-bar URL, or upload a file.",
 		loadFailed: "Could not load the sheet.",
@@ -699,7 +871,18 @@ var dict = {
 		catalog: "Catalog",
 		language: "Language",
 		appearance: "Appearance",
-		prefs: "Settings"
+		prefs: "Settings",
+		showDetails: "Show other details",
+		hideDetails: "Hide details",
+		otherRows: "Other rows",
+		detailsOption: "Show other rows on result cards",
+		confirmClearTitle: "Clear saved catalog?",
+		confirmClearBody: "The saved spreadsheet and column mapping will be removed from this device. Language and theme are kept. This cannot be undone.",
+		confirmReplaceTitle: "Replace the current catalog?",
+		confirmReplaceBody: "The new spreadsheet will overwrite the catalog saved on this device.",
+		confirmAction: "Delete",
+		confirmReplaceAction: "Replace",
+		cancel: "Cancel"
 	},
 	de: {
 		appName: "DEPO LOT TAKİP",
@@ -714,26 +897,29 @@ var dict = {
 		dropHint: "Arbeitsmappe hier ablegen oder Datei wählen. .xlsx, .xls, .csv",
 		chooseFile: "Datei wählen",
 		columns: "Spalten",
-		columnsHint: "Suche nur exakte Treffer in Artikel, sonst in Alternativartikel.",
+		columnsHint: "Artikel und Alternativartikel exakt. Produktnamen als Text. LOT nur exakt.",
 		article: "Artikel",
 		alternativeArticle: "Alternativartikel",
+		productName: "Produktname",
 		lot: "LOT",
 		none: "Keine",
 		lookUp: "Artikel suchen",
 		refresh: "Aktualisieren",
 		rows: "Zeilen",
 		clearCatalog: "Gespeicherten Katalog löschen",
-		articleNumber: "Artikelnummer",
-		articlePlaceholder: "Einfügen oder tippen, dann Enter",
-		idleHint: "Exakte Übereinstimmung in der Artikelspalte, sonst in der Alternativartikelspalte.",
+		articleNumber: "Suche",
+		articlePlaceholder: "Artikel, Produktname oder LOT",
+		idleHint: "Exakte Treffer in Artikel, Alternativartikel und LOT. Produktnamen als Text.",
 		products: "Produkte",
 		pressToFocus: "/ zum Fokussieren",
 		copy: "Kopieren",
 		copied: "Kopiert",
 		matchedOn: "Treffer über",
 		matchedAlt: "Alternativartikel",
-		noLot: "Kein LOT für diesen Artikel",
-		missHint: "Es werden nur exakte Treffer in Artikel- oder Alternativartikelspalte verwendet.",
+		matchedLot: "LOT",
+		matchedName: "Produktname",
+		noLot: "Kein Treffer",
+		missHint: "Artikel, Alternativartikel und LOT exakt. Produktnamen als Textsuche.",
 		pasteLinkFirst: "Zuerst einen Google-Sheets-Link einfügen.",
 		notSheetsLink: "Das ist kein Google-Sheets-Link. Adressleisten-URL verwenden oder Datei laden.",
 		loadFailed: "Tabelle konnte nicht geladen werden.",
@@ -749,7 +935,18 @@ var dict = {
 		catalog: "Katalog",
 		language: "Sprache",
 		appearance: "Darstellung",
-		prefs: "Einstellungen"
+		prefs: "Einstellungen",
+		showDetails: "Weitere Details zeigen",
+		hideDetails: "Details ausblenden",
+		otherRows: "Weitere Zeilen",
+		detailsOption: "Weitere Zeilen auf Ergebniskarten zeigen",
+		confirmClearTitle: "Gespeicherten Katalog löschen?",
+		confirmClearBody: "Die gespeicherte Tabelle und die Spaltenzuordnung werden von diesem Gerät entfernt. Sprache und Thema bleiben. Das kann nicht rückgängig gemacht werden.",
+		confirmReplaceTitle: "Aktuellen Katalog ersetzen?",
+		confirmReplaceBody: "Die neue Tabelle überschreibt den auf diesem Gerät gespeicherten Katalog.",
+		confirmAction: "Löschen",
+		confirmReplaceAction: "Ersetzen",
+		cancel: "Abbrechen"
 	}
 };
 function t(locale, key) {
@@ -767,13 +964,17 @@ function localeTag(locale) {
 	if (locale === "de") return "de-DE";
 	return "en-US";
 }
-function applyChrome(locale, theme) {
+function applyChrome(locale, theme, title) {
 	if (typeof document === "undefined") return;
 	const root = document.documentElement;
 	root.classList.toggle("dark", theme === "dark");
 	root.lang = locale;
 	root.style.colorScheme = theme === "dark" ? "dark" : "light";
+	document.title = title;
 	document.querySelector("meta[name=\"theme-color\"]")?.setAttribute("content", theme === "dark" ? "#0c0d0f" : "#ffffff");
+}
+function chromeTitle(settings) {
+	return settings.catalogTitle || t(settings.locale, "appName");
 }
 async function copyText(value) {
 	try {
@@ -802,15 +1003,24 @@ function LotKeepApp() {
 	const [busy, setBusy] = (0, import_react.useState)(false);
 	const [error, setError] = (0, import_react.useState)(null);
 	(0, import_react.useEffect)(() => {
-		applyChrome(DEFAULT_SETTINGS.locale, DEFAULT_SETTINGS.theme);
+		applyChrome(DEFAULT_SETTINGS.locale, DEFAULT_SETTINGS.theme, t("tr", "appName"));
 		let cancelled = false;
 		(async () => {
 			try {
 				const stored = loadSettings();
 				const data = await loadCatalog();
 				if (cancelled) return;
-				applyChrome(stored.locale, stored.theme);
 				const usable = stored.source ? data : null;
+				if (usable && stored.columns && !stored.columns.name) {
+					const detected = detectColumns(usable.headers);
+					if (detected.name) stored.columns = {
+						...stored.columns,
+						name: detected.name
+					};
+				}
+				if (!stored.catalogTitle && stored.source) stored.catalogTitle = stored.source.kind === "file" ? stored.source.fileName : stored.source.title || t(stored.locale, "googleSheet");
+				saveSettings(stored);
+				applyChrome(stored.locale, stored.theme, chromeTitle(stored));
 				if (!stored.source && data) clearCatalog();
 				if (!stored.source && (stored.columns || stored.loadedAt)) {
 					stored.columns = null;
@@ -822,7 +1032,7 @@ function LotKeepApp() {
 				setScreen(usable && stored.columns ? "lookup" : "source");
 			} catch {
 				if (cancelled) return;
-				applyChrome(DEFAULT_SETTINGS.locale, DEFAULT_SETTINGS.theme);
+				applyChrome(DEFAULT_SETTINGS.locale, DEFAULT_SETTINGS.theme, t("tr", "appName"));
 				setCatalog(null);
 				setScreen("source");
 			}
@@ -834,7 +1044,7 @@ function LotKeepApp() {
 	const persistSettings = (0, import_react.useCallback)((next) => {
 		setSettings(next);
 		saveSettings(next);
-		applyChrome(next.locale, next.theme);
+		applyChrome(next.locale, next.theme, chromeTitle(next));
 	}, []);
 	const persist = (0, import_react.useCallback)((next, nextCatalog) => {
 		persistSettings(next);
@@ -848,7 +1058,8 @@ function LotKeepApp() {
 			source,
 			columns,
 			loadedAt: Date.now(),
-			sheetUrl: source.kind === "sheets" ? source.url : settings.sheetUrl
+			sheetUrl: source.kind === "sheets" ? source.url : settings.sheetUrl,
+			catalogTitle: source.kind === "file" ? source.fileName : source.title || t(settings.locale, "googleSheet")
 		}, nextCatalog);
 		setError(null);
 		setScreen("lookup");
@@ -864,7 +1075,8 @@ function LotKeepApp() {
 			...settings,
 			source: null,
 			columns: null,
-			loadedAt: null
+			loadedAt: null,
+			catalogTitle: ""
 		}, null);
 		setScreen("source");
 		setError(null);
@@ -905,6 +1117,10 @@ function LotKeepApp() {
 				onTheme: (next) => persistSettings({
 					...settings,
 					theme: next
+				}),
+				onShowDetails: (showDetails) => persistSettings({
+					...settings,
+					showDetails
 				})
 			}) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(LookupView, {
 				catalog,
@@ -928,8 +1144,9 @@ function Header({ settings, hasCatalog, screen, onToggle }) {
 			}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
 				className: "min-w-0",
 				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
-					className: "text-sm font-medium tracking-tight text-foreground",
-					children: tr("appName")
+					className: "truncate text-sm font-medium tracking-tight text-foreground",
+					title: chromeTitle(settings),
+					children: chromeTitle(settings)
 				}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
 					className: "text-xs text-subtle",
 					children: tr("tagline")
@@ -1066,7 +1283,8 @@ function LookupView({ catalog, settings, index, tr, onOpenSource }) {
 					className: "flex flex-col gap-3",
 					children: showHits.map((hit, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(LotTag, {
 						hit,
-						tr
+						tr,
+						defaultOpen: settings.showDetails
 					}, `${hit.lot}-${hit.article}-${i}`))
 				}) : showMiss ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MissCard, {
 					query,
@@ -1099,8 +1317,18 @@ function LookupView({ catalog, settings, index, tr, onOpenSource }) {
 		]
 	});
 }
-function LotTag({ hit, tr }) {
+function LotTag({ hit, tr, defaultOpen }) {
 	const [copied, setCopied] = (0, import_react.useState)(false);
+	const [open, setOpen] = (0, import_react.useState)(defaultOpen);
+	const extraCount = hit.others.length;
+	const viaLabel = hit.via === "alternative" ? tr("matchedAlt") : hit.via === "lot" ? tr("matchedLot") : hit.via === "name" ? tr("matchedName") : null;
+	(0, import_react.useEffect)(() => {
+		setOpen(defaultOpen);
+	}, [
+		defaultOpen,
+		hit.lot,
+		hit.article
+	]);
 	async function copyLot() {
 		if (!hit.lot) return;
 		if (!await copyText(hit.lot)) return;
@@ -1109,56 +1337,101 @@ function LotTag({ hit, tr }) {
 	}
 	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("article", {
 		className: "lot-tag",
-		role: "button",
-		tabIndex: 0,
-		onClick: () => void copyLot(),
-		onKeyDown: (e) => {
-			if (e.key === "Enter" || e.key === " ") {
-				e.preventDefault();
-				copyLot();
-			}
-		},
-		"aria-label": `${tr("lot")} ${hit.lot}. ${tr("copy")}`,
 		children: [
 			/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
 				className: "lot-tag-hole",
 				"aria-hidden": "true"
 			}),
-			/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-				className: "flex items-start justify-between gap-3 pl-6",
-				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
-					className: "text-xs font-medium uppercase tracking-[0.16em] text-ink-muted",
-					children: tr("lot")
-				}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", {
-					className: "inline-flex min-h-11 items-center gap-1.5 text-xs font-medium text-ink-muted",
-					children: [copied ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Check, { className: "size-3.5" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Copy, { className: "size-3.5" }), copied ? tr("copied") : tr("copy")]
-				})]
+			/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
+				type: "button",
+				className: "w-full text-left",
+				onClick: () => void copyLot(),
+				"aria-label": `${tr("lot")} ${hit.lot}. ${tr("copy")}`,
+				children: [
+					/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+						className: "flex items-start justify-between gap-3 pl-6",
+						children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+							className: "text-xs font-medium uppercase tracking-[0.16em] text-ink-muted",
+							children: tr("lot")
+						}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", {
+							className: "inline-flex min-h-11 items-center gap-1.5 text-xs font-medium text-ink-muted",
+							children: [copied ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Check, { className: "size-3.5" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Copy, { className: "size-3.5" }), copied ? tr("copied") : tr("copy")]
+						})]
+					}),
+					/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+						className: "mt-3 break-all font-mono text-lot font-medium leading-tight tracking-tight text-ink",
+						children: hit.lot || "—"
+					}),
+					hit.article ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+						className: "mt-2 pl-6 font-mono text-sm text-ink",
+						children: hit.article
+					}) : null,
+					hit.name && hit.via === "name" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+						className: "mt-1 pl-6 text-sm text-ink",
+						children: hit.name
+					}) : null
+				]
 			}),
-			/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
-				className: "mt-3 break-all font-mono text-lot font-medium leading-tight tracking-tight text-ink",
-				children: hit.lot || "—"
-			}),
-			/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("dl", {
-				className: "mt-5 space-y-1.5 border-t border-ink/10 pt-4 text-sm",
-				children: [hit.via === "alternative" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-					className: "flex justify-between gap-4",
-					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("dt", {
-						className: "text-ink-muted",
-						children: tr("matchedOn")
-					}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("dd", {
-						className: "text-ink",
-						children: tr("matchedAlt")
+			viaLabel ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("p", {
+				className: "mt-2 pl-6 text-xs text-ink-muted",
+				children: [
+					tr("matchedOn"),
+					": ",
+					viaLabel
+				]
+			}) : null,
+			open ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+				className: "mt-5 space-y-4 border-t border-ink/10 pt-4",
+				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("dl", {
+					className: "space-y-1.5 text-sm",
+					children: hit.fields.map((field) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+						className: "flex justify-between gap-4",
+						children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("dt", {
+							className: "shrink-0 text-ink-muted",
+							children: field.label
+						}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("dd", {
+							className: "break-all text-right font-mono text-ink",
+							children: field.value
+						})]
+					}, field.label))
+				}), hit.others.map((row, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+					className: "border-t border-ink/10 pt-4",
+					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("p", {
+						className: "mb-2 text-xs font-medium uppercase tracking-[0.14em] text-ink-muted",
+						children: [
+							tr("otherRows"),
+							" ",
+							i + 2
+						]
+					}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("dl", {
+						className: "space-y-1.5 text-sm",
+						children: row.fields.map((field) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+							className: "flex justify-between gap-4",
+							children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("dt", {
+								className: "shrink-0 text-ink-muted",
+								children: field.label
+							}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("dd", {
+								className: "break-all text-right font-mono text-ink",
+								children: field.value
+							})]
+						}, field.label))
 					})]
-				}) : null, hit.fields.map((field) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-					className: "flex justify-between gap-4",
-					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("dt", {
-						className: "shrink-0 text-ink-muted",
-						children: field.label
-					}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("dd", {
-						className: "text-right font-mono text-ink break-all",
-						children: field.value
-					})]
-				}, field.label))]
+				}, i))]
+			}) : extraCount > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("p", {
+				className: "mt-3 pl-6 text-xs text-ink-muted",
+				children: [
+					"+",
+					extraCount,
+					" ",
+					tr("otherRows").toLowerCase()
+				]
+			}) : null,
+			/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
+				type: "button",
+				onClick: () => setOpen((v) => !v),
+				className: "mt-3 inline-flex min-h-11 items-center gap-1 pl-6 text-xs font-medium text-ink-muted",
+				"aria-expanded": open,
+				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(ChevronDown, { className: cn("size-3.5 transition-transform duration-150", open && "rotate-180") }), open ? tr("hideDetails") : tr("showDetails")]
 			})
 		]
 	});
@@ -1182,11 +1455,21 @@ function MissCard({ query, tr }) {
 		]
 	});
 }
-function SourceView({ settings, catalog, busy, error, tr, setBusy, setError, setSheetUrl, onLoaded, onColumnsChange, onClear, onDone, onLocale, onTheme }) {
+function SourceView({ settings, catalog, busy, error, tr, setBusy, setError, setSheetUrl, onLoaded, onColumnsChange, onClear, onDone, onLocale, onTheme, onShowDetails }) {
 	const [dragging, setDragging] = (0, import_react.useState)(false);
+	const [confirmKind, setConfirmKind] = (0, import_react.useState)(null);
+	const pendingLoad = (0, import_react.useRef)(null);
 	const fileRef = (0, import_react.useRef)(null);
 	const columns = settings.columns;
 	const headers = catalog?.headers ?? [];
+	function runOrConfirmReplace(action) {
+		if (!catalog) {
+			action();
+			return;
+		}
+		pendingLoad.current = action;
+		setConfirmKind("replace");
+	}
 	async function loadSheet(urlOverride) {
 		const url = (urlOverride ?? settings.sheetUrl).trim();
 		if (!url) {
@@ -1209,7 +1492,8 @@ function SourceView({ settings, catalog, busy, error, tr, setBusy, setError, set
 				kind: "sheets",
 				url,
 				id: loaded.ref.id,
-				gid: loaded.ref.gid
+				gid: loaded.ref.gid,
+				title: loaded.title
 			}, mapping);
 		} catch {
 			setError(tr("loadFailed"));
@@ -1232,7 +1516,8 @@ function SourceView({ settings, catalog, busy, error, tr, setBusy, setError, set
 				activeSheet: first
 			}, {
 				kind: "file",
-				fileName: file.name
+				fileName: file.name,
+				title: file.name
 			}, mapping);
 		} catch {
 			setError(tr("fileFailed"));
@@ -1280,7 +1565,7 @@ function SourceView({ settings, catalog, busy, error, tr, setBusy, setError, set
 					}),
 					/* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Button, {
 						className: "mt-4 w-full",
-						onClick: () => void loadSheet(),
+						onClick: () => runOrConfirmReplace(() => void loadSheet()),
 						disabled: busy,
 						children: [busy ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(LoaderCircle, { className: "animate-spin" }) : null, tr("loadSheet")]
 					})
@@ -1301,7 +1586,7 @@ function SourceView({ settings, catalog, busy, error, tr, setBusy, setError, set
 					e.preventDefault();
 					setDragging(false);
 					const file = e.dataTransfer.files[0];
-					if (file) loadFile(file);
+					if (file) runOrConfirmReplace(() => void loadFile(file));
 				},
 				children: [
 					/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
@@ -1322,7 +1607,7 @@ function SourceView({ settings, catalog, busy, error, tr, setBusy, setError, set
 						className: "hidden",
 						onChange: (e) => {
 							const file = e.target.files?.[0];
-							if (file) loadFile(file);
+							if (file) runOrConfirmReplace(() => void loadFile(file));
 							e.currentTarget.value = "";
 						}
 					}),
@@ -1378,6 +1663,18 @@ function SourceView({ settings, catalog, busy, error, tr, setBusy, setError, set
 								})
 							}),
 							/* @__PURE__ */ (0, import_jsx_runtime.jsx)(FieldSelect, {
+								id: "col-name",
+								label: tr("productName"),
+								value: columns.name ?? "",
+								headers,
+								allowNone: true,
+								noneLabel: tr("none"),
+								onChange: (name) => onColumnsChange({
+									...columns,
+									name: name || null
+								})
+							}),
+							/* @__PURE__ */ (0, import_jsx_runtime.jsx)(FieldSelect, {
 								id: "col-lot",
 								label: tr("lot"),
 								value: columns.lot,
@@ -1415,7 +1712,7 @@ function SourceView({ settings, catalog, busy, error, tr, setBusy, setError, set
 					}),
 					/* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
 						type: "button",
-						onClick: onClear,
+						onClick: () => setConfirmKind("clear"),
 						className: "mt-1 px-1 text-left text-xs text-subtle transition-colors duration-150 hover:text-danger",
 						children: tr("clearCatalog")
 					})
@@ -1475,8 +1772,39 @@ function SourceView({ settings, catalog, busy, error, tr, setBusy, setError, set
 								children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Moon, { className: "size-4" }), tr("themeDark")]
 							})]
 						})]
+					}),
+					/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+						className: "mt-4",
+						children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+							className: "mb-2 px-1 text-xs font-medium text-muted",
+							children: tr("detailsOption")
+						}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
+							type: "button",
+							role: "switch",
+							"aria-checked": settings.showDetails,
+							onClick: () => onShowDetails(!settings.showDetails),
+							className: cn("inline-flex h-11 items-center rounded-lg px-3 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out", settings.showDetails ? "bg-primary text-primary-foreground" : "text-muted shadow-[var(--shadow-border)] hover:text-foreground"),
+							children: settings.showDetails ? tr("showDetails") : tr("detailsOption")
+						})]
 					})
 				]
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)(ConfirmDialog, {
+				open: confirmKind !== null,
+				title: confirmKind === "replace" ? tr("confirmReplaceTitle") : tr("confirmClearTitle"),
+				body: confirmKind === "replace" ? tr("confirmReplaceBody") : tr("confirmClearBody"),
+				confirmLabel: confirmKind === "replace" ? tr("confirmReplaceAction") : tr("confirmAction"),
+				cancelLabel: tr("cancel"),
+				onCancel: () => {
+					pendingLoad.current = null;
+					setConfirmKind(null);
+				},
+				onConfirm: () => {
+					if (confirmKind === "clear") onClear();
+					else pendingLoad.current?.();
+					pendingLoad.current = null;
+					setConfirmKind(null);
+				}
 			})
 		]
 	});

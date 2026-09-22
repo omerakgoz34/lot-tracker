@@ -122,20 +122,29 @@ export async function loadGoogleSheet(url: string): Promise<{
   headers: string[];
   rows: RawRow[];
   ref: SheetsRef;
+  title: string;
 }> {
   const ref = parseSheetsUrl(url);
   if (!ref) {
     throw new Error("Paste a Google Sheets link from the address bar.");
   }
 
+  const titlePromise = import.meta.env.VITE_PORTABLE
+    ? Promise.resolve("")
+    : import("./fetch-sheet")
+        .then((mod) => mod.fetchGoogleSheetTitle({ data: { id: ref.id } }))
+        .catch(() => "");
+
   try {
     const parsed = await loadViaGvizJsonp(ref.id, ref.gid);
-    return { ...parsed, ref };
+    const title = (await titlePromise) || "";
+    return { ...parsed, ref, title };
   } catch (err) {
     if (!import.meta.env.VITE_PORTABLE) {
       const { fetchGoogleSheetCsv } = await import("./fetch-sheet");
       const csv = await fetchGoogleSheetCsv({ data: ref });
-      return { ...matrixToRecords(parseCsv(csv)), ref };
+      const title = (await titlePromise) || "";
+      return { ...matrixToRecords(parseCsv(csv)), ref, title };
     }
     throw err;
   }

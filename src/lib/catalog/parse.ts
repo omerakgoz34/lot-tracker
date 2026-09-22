@@ -105,7 +105,7 @@ function foldHeader(header: string): string {
     .trim();
 }
 
-type Kind = "article" | "alternative" | "lot";
+type Kind = "article" | "alternative" | "lot" | "name";
 
 function scoreHeader(header: string, kind: Kind): number {
   const h = foldHeader(header);
@@ -165,6 +165,26 @@ function scoreHeader(header: string, kind: Kind): number {
     "batch number",
   ];
 
+  const nameExact = [
+    "name",
+    "product name",
+    "product",
+    "item name",
+    "item",
+    "description",
+    "desc",
+    "urun",
+    "urun adi",
+    "urun ad",
+    "malzeme adi",
+    "malzeme ad",
+    "aciklama",
+    "bezeichnung",
+    "artikelbezeichnung",
+    "produktname",
+    "produkt",
+  ];
+
   if (kind === "lot") {
     if (lotExact.includes(h)) return 100;
     if (/\blot\b/.test(h) || /\bbatch\b/.test(h) || /\bparti\b/.test(h)) return 70;
@@ -173,6 +193,12 @@ function scoreHeader(header: string, kind: Kind): number {
   if (kind === "alternative") {
     if (altExact.includes(h)) return 100;
     if (/\balt\b/.test(h) || h.includes("alternat") || h.includes("equiv")) return 70;
+    return 0;
+  }
+  if (kind === "name") {
+    if (nameExact.includes(h)) return 100;
+    if (h.includes("name") || h.includes("adi") || h.includes("aciklama") || h.includes("desc") || h.includes("bezeich"))
+      return 70;
     return 0;
   }
   if (articleExact.includes(h)) return 100;
@@ -187,14 +213,17 @@ export function detectColumns(headers: string[]): ColumnMapping {
   let article: string | null = null;
   let alternative: string | null = null;
   let lot: string | null = null;
+  let name: string | null = null;
   let articleScore = 0;
   let altScore = 0;
   let lotScore = 0;
+  let nameScore = 0;
 
   for (const header of headers) {
     const a = scoreHeader(header, "article");
     const alt = scoreHeader(header, "alternative");
     const l = scoreHeader(header, "lot");
+    const n = scoreHeader(header, "name");
     if (a > articleScore) {
       article = header;
       articleScore = a;
@@ -206,6 +235,10 @@ export function detectColumns(headers: string[]): ColumnMapping {
     if (l > lotScore) {
       lot = header;
       lotScore = l;
+    }
+    if (n > nameScore) {
+      name = header;
+      nameScore = n;
     }
   }
 
@@ -226,17 +259,21 @@ export function detectColumns(headers: string[]): ColumnMapping {
     lot && lot !== fallbackArticle
       ? lot
       : (headers.find((h) => h !== fallbackArticle) ?? fallbackArticle);
+  if (name === fallbackArticle || name === fallbackLot || name === alternative) name = null;
 
   return {
     article: fallbackArticle,
     alternative: alternative && alternative !== fallbackArticle && alternative !== fallbackLot ? alternative : null,
     lot: fallbackLot,
+    name,
   };
 }
 
 export type LookupIndex = {
   article: Map<string, RawRow[]>;
   alternative: Map<string, RawRow[]>;
+  lot: Map<string, RawRow[]>;
+  names: Array<{ key: string; row: RawRow }>;
 };
 
 function pushMap(map: Map<string, RawRow[]>, key: string, row: RawRow) {
@@ -248,6 +285,8 @@ function pushMap(map: Map<string, RawRow[]>, key: string, row: RawRow) {
 export function buildIndex(rows: RawRow[], columns: ColumnMapping): LookupIndex {
   const article = new Map<string, RawRow[]>();
   const alternative = new Map<string, RawRow[]>();
+  const lot = new Map<string, RawRow[]>();
+  const names: Array<{ key: string; row: RawRow }> = [];
   for (const row of rows) {
     const a = normalize(row[columns.article] ?? "");
     if (a) pushMap(article, a, row);
@@ -255,8 +294,14 @@ export function buildIndex(rows: RawRow[], columns: ColumnMapping): LookupIndex 
       const alt = normalize(row[columns.alternative] ?? "");
       if (alt) pushMap(alternative, alt, row);
     }
+    const lotVal = normalize(row[columns.lot] ?? "");
+    if (lotVal) pushMap(lot, lotVal, row);
+    if (columns.name) {
+      const nameVal = normalize(row[columns.name] ?? "");
+      if (nameVal) names.push({ key: nameVal, row });
+    }
   }
-  return { article, alternative };
+  return { article, alternative, lot, names };
 }
 
 function fieldsFor(row: RawRow): { label: string; value: string }[] {
@@ -274,9 +319,35 @@ function toHit(row: RawRow, columns: ColumnMapping, via: MatchVia): MatchHit {
     lot: (row[columns.lot] ?? "").trim(),
     article: (row[columns.article] ?? "").trim(),
     alternative: columns.alternative ? (row[columns.alternative] ?? "").trim() : "",
+    name: columns.name ? (row[columns.name] ?? "").trim() : "",
     via,
     fields: fieldsFor(row),
+    others: [],
   };
+}
+
+function rowKey(row: RawRow): string {
+  return JSON.stringify(row);
+}
+
+function groupHits(rows: RawRow[], columns: ColumnMapping, via: MatchVia): MatchHit[] {
+  const groups = new Map<string, RawRow[]>();
+  const order: string[] = [];
+  for (const row of rows) {
+    const lot = normalize(row[columns.lot] ?? "") || rowKey(row);
+    const list = groups.get(lot);
+    if (list) list.push(row);
+    else {
+      groups.set(lot, [row]);
+      order.push(lot);
+    }
+  }
+  return order.map((key) => {
+    const grouped = groups.get(key)!;
+    const primary = toHit(grouped[0]!, columns, via);
+    primary.others = grouped.slice(1).map((row) => ({ fields: fieldsFor(row) }));
+    return primary;
+  });
 }
 
 export function lookupExact(
@@ -287,24 +358,23 @@ export function lookupExact(
   const q = normalize(query);
   if (!q) return [];
   const primary = index.article.get(q);
-  if (primary && primary.length > 0) {
-    return dedupeLots(primary.map((row) => toHit(row, columns, "article")));
-  }
+  if (primary && primary.length > 0) return groupHits(primary, columns, "article");
   const alt = index.alternative.get(q);
-  if (alt && alt.length > 0) {
-    return dedupeLots(alt.map((row) => toHit(row, columns, "alternative")));
+  if (alt && alt.length > 0) return groupHits(alt, columns, "alternative");
+  const lots = index.lot.get(q);
+  if (lots && lots.length > 0) return groupHits(lots, columns, "lot");
+  if (q.length >= 2 && index.names.length > 0) {
+    const matched: RawRow[] = [];
+    const seen = new Set<string>();
+    for (const entry of index.names) {
+      if (!entry.key.includes(q)) continue;
+      const id = rowKey(entry.row);
+      if (seen.has(id)) continue;
+      seen.add(id);
+      matched.push(entry.row);
+      if (matched.length >= 40) break;
+    }
+    if (matched.length > 0) return groupHits(matched, columns, "name");
   }
   return [];
-}
-
-function dedupeLots(hits: MatchHit[]): MatchHit[] {
-  const seen = new Set<string>();
-  const out: MatchHit[] = [];
-  for (const hit of hits) {
-    const key = normalize(hit.lot) || `${hit.article}::${hit.via}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(hit);
-  }
-  return out;
 }

@@ -6,9 +6,12 @@ export type ColumnMapping = {
   article: string;
   alternative: string | null;
   lot: string;
+  name: string | null;
 };
 
-export type Source = { kind: "sheets"; url: string; id: string; gid: string } | { kind: "file"; fileName: string };
+export type Source =
+  | { kind: "sheets"; url: string; id: string; gid: string; title?: string }
+  | { kind: "file"; fileName: string; title?: string };
 
 export type Settings = {
   sheetUrl: string;
@@ -17,6 +20,8 @@ export type Settings = {
   loadedAt: number | null;
   locale: Locale;
   theme: Theme;
+  catalogTitle: string;
+  showDetails: boolean;
 };
 
 export type Catalog = {
@@ -26,14 +31,16 @@ export type Catalog = {
   activeSheet?: string;
 };
 
-export type MatchVia = "article" | "alternative";
+export type MatchVia = "article" | "alternative" | "lot" | "name";
 
 export type MatchHit = {
   lot: string;
   article: string;
   alternative: string;
+  name: string;
   via: MatchVia;
   fields: { label: string; value: string }[];
+  others: { fields: { label: string; value: string }[] }[];
 };
 
 export const SETTINGS_KEY = "lotkeep.settings.v1";
@@ -44,4 +51,24 @@ export const DEFAULT_SETTINGS: Settings = {
   loadedAt: null,
   locale: "tr",
   theme: "light",
+  catalogTitle: "",
+  showDetails: false,
 };
+
+export function coerceColumns(raw: unknown): ColumnMapping | null {
+  if (!raw || typeof raw !== "object") return null;
+  const c = raw as Partial<ColumnMapping>;
+  if (typeof c.article !== "string" || typeof c.lot !== "string") return null;
+  return {
+    article: c.article,
+    alternative: typeof c.alternative === "string" && c.alternative ? c.alternative : null,
+    lot: c.lot,
+    name: typeof c.name === "string" && c.name ? c.name : null,
+  };
+}
+
+export function displayCatalogTitle(source: Source | null, fallback: string): string {
+  if (!source) return fallback;
+  if (source.kind === "file") return source.title || source.fileName || fallback;
+  return source.title || fallback;
+}

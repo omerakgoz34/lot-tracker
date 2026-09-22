@@ -32,3 +32,33 @@ export const fetchGoogleSheetCsv = createServerFn({ method: "POST" })
     if (!trimmed) throw new Error("The sheet came back empty.");
     return text;
   });
+
+function decodeEntities(value: string): string {
+  return value
+    .replace(/&/g, "&")
+    .replace(/</g, "<")
+    .replace(/>/g, ">")
+    .replace(/"/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    .trim();
+}
+
+const TitleRequest = z.object({
+  id: z.string().regex(/^[a-zA-Z0-9-_]{16,}$/),
+});
+
+export const fetchGoogleSheetTitle = createServerFn({ method: "POST" })
+  .validator(TitleRequest)
+  .handler(async ({ data }) => {
+    const url = `https://docs.google.com/spreadsheets/d/${data.id}/htmlview`;
+    const res = await fetch(url, {
+      headers: { Accept: "text/html,application/xhtml+xml;q=0.9" },
+      redirect: "follow",
+    });
+    if (!res.ok) return "";
+    const html = await res.text();
+    const match = html.match(/<title>([^<]+)<\/title>/i);
+    if (!match?.[1]) return "";
+    return decodeEntities(match[1]).replace(/\s+[-–—]\s+Google.*$/i, "").trim();
+  });

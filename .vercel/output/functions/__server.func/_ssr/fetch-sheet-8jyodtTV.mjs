@@ -1,6 +1,6 @@
 import { n as TSS_SERVER_FUNCTION, t as createServerFn } from "./ssr.mjs";
 import { i as string, r as object } from "../_libs/zod.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/fetch-sheet-BC8A0UHh.js
+//#region node_modules/.nitro/vite/services/ssr/assets/fetch-sheet-8jyodtTV.js
 var createServerRpc = (serverFnMeta, splitImportFn) => {
 	const url = "/_serverFn/" + serverFnMeta.id;
 	return Object.assign(splitImportFn, {
@@ -31,5 +31,25 @@ var fetchGoogleSheetCsv = createServerFn({ method: "POST" }).validator(SheetRequ
 	if (!trimmed) throw new Error("The sheet came back empty.");
 	return text;
 });
+function decodeEntities(value) {
+	return value.replace(/&/g, "&").replace(/</g, "<").replace(/>/g, ">").replace(/"/g, "\"").replace(/&#39;/g, "'").replace(/&nbsp;/g, " ").trim();
+}
+var TitleRequest = object({ id: string().regex(/^[a-zA-Z0-9-_]{16,}$/) });
+var fetchGoogleSheetTitle_createServerFn_handler = createServerRpc({
+	id: "e13a659a7bbc89509771ed572179d2eacbd2bccaa0ff216dd15d3b5ccef946a1",
+	name: "fetchGoogleSheetTitle",
+	filename: "src/lib/catalog/fetch-sheet.ts"
+}, (opts) => fetchGoogleSheetTitle.__executeServer(opts));
+var fetchGoogleSheetTitle = createServerFn({ method: "POST" }).validator(TitleRequest).handler(fetchGoogleSheetTitle_createServerFn_handler, async ({ data }) => {
+	const url = `https://docs.google.com/spreadsheets/d/${data.id}/htmlview`;
+	const res = await fetch(url, {
+		headers: { Accept: "text/html,application/xhtml+xml;q=0.9" },
+		redirect: "follow"
+	});
+	if (!res.ok) return "";
+	const match = (await res.text()).match(/<title>([^<]+)<\/title>/i);
+	if (!match?.[1]) return "";
+	return decodeEntities(match[1]).replace(/\s+[-–—]\s+Google.*$/i, "").trim();
+});
 //#endregion
-export { fetchGoogleSheetCsv_createServerFn_handler };
+export { fetchGoogleSheetCsv_createServerFn_handler, fetchGoogleSheetTitle_createServerFn_handler };

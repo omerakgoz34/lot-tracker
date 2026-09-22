@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   Check,
+  ChevronDown,
   Copy,
   FileSpreadsheet,
   LoaderCircle,
@@ -12,6 +13,7 @@ import {
   Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { parseWorkbook } from "@/lib/catalog/file";
@@ -40,14 +42,19 @@ import { cn } from "@/lib/utils";
 
 type Screen = "lookup" | "source";
 
-function applyChrome(locale: Locale, theme: Theme) {
+function applyChrome(locale: Locale, theme: Theme, title: string) {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
   root.classList.toggle("dark", theme === "dark");
   root.lang = locale;
   root.style.colorScheme = theme === "dark" ? "dark" : "light";
+  document.title = title;
   const meta = document.querySelector('meta[name="theme-color"]');
   meta?.setAttribute("content", theme === "dark" ? "#0c0d0f" : "#ffffff");
+}
+
+function chromeTitle(settings: Settings): string {
+  return settings.catalogTitle || t(settings.locale, "appName");
 }
 
 async function copyText(value: string): Promise<boolean> {
@@ -79,15 +86,28 @@ export function LotKeepApp() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    applyChrome(DEFAULT_SETTINGS.locale, DEFAULT_SETTINGS.theme);
+    applyChrome(DEFAULT_SETTINGS.locale, DEFAULT_SETTINGS.theme, t("tr", "appName"));
     let cancelled = false;
     (async () => {
       try {
         const stored = loadSettings();
         const data = await loadCatalog();
         if (cancelled) return;
-        applyChrome(stored.locale, stored.theme);
         const usable = stored.source ? data : null;
+        if (usable && stored.columns && !stored.columns.name) {
+          const detected = detectColumns(usable.headers);
+          if (detected.name) {
+            stored.columns = { ...stored.columns, name: detected.name };
+          }
+        }
+        if (!stored.catalogTitle && stored.source) {
+          stored.catalogTitle =
+            stored.source.kind === "file"
+              ? stored.source.fileName
+              : stored.source.title || t(stored.locale, "googleSheet");
+        }
+        saveSettings(stored);
+        applyChrome(stored.locale, stored.theme, chromeTitle(stored));
         if (!stored.source && data) void clearCatalog();
         if (!stored.source && (stored.columns || stored.loadedAt)) {
           stored.columns = null;
@@ -99,7 +119,7 @@ export function LotKeepApp() {
         setScreen(usable && stored.columns ? "lookup" : "source");
       } catch {
         if (cancelled) return;
-        applyChrome(DEFAULT_SETTINGS.locale, DEFAULT_SETTINGS.theme);
+        applyChrome(DEFAULT_SETTINGS.locale, DEFAULT_SETTINGS.theme, t("tr", "appName"));
         setCatalog(null);
         setScreen("source");
       }
@@ -112,7 +132,7 @@ export function LotKeepApp() {
   const persistSettings = useCallback((next: Settings) => {
     setSettings(next);
     saveSettings(next);
-    applyChrome(next.locale, next.theme);
+    applyChrome(next.locale, next.theme, chromeTitle(next));
   }, []);
 
   const persist = useCallback((next: Settings, nextCatalog: Catalog | null) => {
@@ -131,6 +151,10 @@ export function LotKeepApp() {
           columns,
           loadedAt: Date.now(),
           sheetUrl: source.kind === "sheets" ? source.url : settings.sheetUrl,
+          catalogTitle:
+            source.kind === "file"
+              ? source.fileName
+              : source.title || t(settings.locale, "googleSheet"),
         },
         nextCatalog,
       );
@@ -149,7 +173,7 @@ export function LotKeepApp() {
 
   const onClear = useCallback(() => {
     persist(
-      { ...settings, source: null, columns: null, loadedAt: null },
+      { ...settings, source: null, columns: null, loadedAt: null, catalogTitle: "" },
       null,
     );
     setScreen("source");
@@ -189,6 +213,7 @@ export function LotKeepApp() {
             onDone={() => setScreen("lookup")}
             onLocale={(next) => persistSettings({ ...settings, locale: next })}
             onTheme={(next) => persistSettings({ ...settings, theme: next })}
+            onShowDetails={(showDetails) => persistSettings({ ...settings, showDetails })}
           />
         ) : (
           <LookupView
@@ -223,7 +248,9 @@ function Header({
           <LotMark />
         </span>
         <div className="min-w-0">
-          <p className="text-sm font-medium tracking-tight text-foreground">{tr("appName")}</p>
+          <p className="truncate text-sm font-medium tracking-tight text-foreground" title={chromeTitle(settings)}>
+            {chromeTitle(settings)}
+          </p>
           <p className="text-xs text-subtle">{tr("tagline")}</p>
         </div>
       </div>
@@ -365,7 +392,12 @@ function LookupView({
         {showHits.length > 0 ? (
           <div className="flex flex-col gap-3">
             {showHits.map((hit, i) => (
-              <LotTag key={`${hit.lot}-${hit.article}-${i}`} hit={hit} tr={tr} />
+              <LotTag
+                key={`${hit.lot}-${hit.article}-${i}`}
+                hit={hit}
+                tr={tr}
+                defaultOpen={settings.showDetails}
+              />
             ))}
           </div>
         ) : showMiss ? (
@@ -394,8 +426,30 @@ function LookupView({
   );
 }
 
-function LotTag({ hit, tr }: { hit: MatchHit; tr: (key: MessageKey) => string }) {
+function LotTag({
+  hit,
+  tr,
+  defaultOpen,
+}: {
+  hit: MatchHit;
+  tr: (key: MessageKey) => string;
+  defaultOpen: boolean;
+}) {
   const [copied, setCopied] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
+  const extraCount = hit.others.length;
+  const viaLabel =
+    hit.via === "alternative"
+      ? tr("matchedAlt")
+      : hit.via === "lot"
+        ? tr("matchedLot")
+        : hit.via === "name"
+          ? tr("matchedName")
+          : null;
+
+  useEffect(() => {
+    setOpen(defaultOpen);
+  }, [defaultOpen, hit.lot, hit.article]);
 
   async function copyLot() {
     if (!hit.lot) return;
@@ -406,44 +460,76 @@ function LotTag({ hit, tr }: { hit: MatchHit; tr: (key: MessageKey) => string })
   }
 
   return (
-    <article
-      className="lot-tag"
-      role="button"
-      tabIndex={0}
-      onClick={() => void copyLot()}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          void copyLot();
-        }
-      }}
-      aria-label={`${tr("lot")} ${hit.lot}. ${tr("copy")}`}
-    >
+    <article className="lot-tag">
       <span className="lot-tag-hole" aria-hidden="true" />
-      <div className="flex items-start justify-between gap-3 pl-6">
-        <p className="text-xs font-medium uppercase tracking-[0.16em] text-ink-muted">{tr("lot")}</p>
-        <span className="inline-flex min-h-11 items-center gap-1.5 text-xs font-medium text-ink-muted">
-          {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-          {copied ? tr("copied") : tr("copy")}
-        </span>
-      </div>
-      <p className="mt-3 break-all font-mono text-lot font-medium leading-tight tracking-tight text-ink">
-        {hit.lot || "—"}
-      </p>
-      <dl className="mt-5 space-y-1.5 border-t border-ink/10 pt-4 text-sm">
-        {hit.via === "alternative" ? (
-          <div className="flex justify-between gap-4">
-            <dt className="text-ink-muted">{tr("matchedOn")}</dt>
-            <dd className="text-ink">{tr("matchedAlt")}</dd>
-          </div>
+      <button
+        type="button"
+        className="w-full text-left"
+        onClick={() => void copyLot()}
+        aria-label={`${tr("lot")} ${hit.lot}. ${tr("copy")}`}
+      >
+        <div className="flex items-start justify-between gap-3 pl-6">
+          <p className="text-xs font-medium uppercase tracking-[0.16em] text-ink-muted">{tr("lot")}</p>
+          <span className="inline-flex min-h-11 items-center gap-1.5 text-xs font-medium text-ink-muted">
+            {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+            {copied ? tr("copied") : tr("copy")}
+          </span>
+        </div>
+        <p className="mt-3 break-all font-mono text-lot font-medium leading-tight tracking-tight text-ink">
+          {hit.lot || "—"}
+        </p>
+        {hit.article ? (
+          <p className="mt-2 pl-6 font-mono text-sm text-ink">{hit.article}</p>
         ) : null}
-        {hit.fields.map((field) => (
-          <div key={field.label} className="flex justify-between gap-4">
-            <dt className="shrink-0 text-ink-muted">{field.label}</dt>
-            <dd className="text-right font-mono text-ink break-all">{field.value}</dd>
-          </div>
-        ))}
-      </dl>
+        {hit.name && hit.via === "name" ? (
+          <p className="mt-1 pl-6 text-sm text-ink">{hit.name}</p>
+        ) : null}
+      </button>
+      {viaLabel ? (
+        <p className="mt-2 pl-6 text-xs text-ink-muted">
+          {tr("matchedOn")}: {viaLabel}
+        </p>
+      ) : null}
+      {open ? (
+        <div className="mt-5 space-y-4 border-t border-ink/10 pt-4">
+          <dl className="space-y-1.5 text-sm">
+            {hit.fields.map((field) => (
+              <div key={field.label} className="flex justify-between gap-4">
+                <dt className="shrink-0 text-ink-muted">{field.label}</dt>
+                <dd className="break-all text-right font-mono text-ink">{field.value}</dd>
+              </div>
+            ))}
+          </dl>
+          {hit.others.map((row, i) => (
+            <div key={i} className="border-t border-ink/10 pt-4">
+              <p className="mb-2 text-xs font-medium uppercase tracking-[0.14em] text-ink-muted">
+                {tr("otherRows")} {i + 2}
+              </p>
+              <dl className="space-y-1.5 text-sm">
+                {row.fields.map((field) => (
+                  <div key={field.label} className="flex justify-between gap-4">
+                    <dt className="shrink-0 text-ink-muted">{field.label}</dt>
+                    <dd className="break-all text-right font-mono text-ink">{field.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          ))}
+        </div>
+      ) : extraCount > 0 ? (
+        <p className="mt-3 pl-6 text-xs text-ink-muted">
+          +{extraCount} {tr("otherRows").toLowerCase()}
+        </p>
+      ) : null}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="mt-3 inline-flex min-h-11 items-center gap-1 pl-6 text-xs font-medium text-ink-muted"
+        aria-expanded={open}
+      >
+        <ChevronDown className={cn("size-3.5 transition-transform duration-150", open && "rotate-180")} />
+        {open ? tr("hideDetails") : tr("showDetails")}
+      </button>
     </article>
   );
 }
@@ -473,6 +559,7 @@ function SourceView({
   onDone,
   onLocale,
   onTheme,
+  onShowDetails,
 }: {
   settings: Settings;
   catalog: Catalog | null;
@@ -488,11 +575,23 @@ function SourceView({
   onDone: () => void;
   onLocale: (locale: Locale) => void;
   onTheme: (theme: Theme) => void;
+  onShowDetails: (value: boolean) => void;
 }) {
   const [dragging, setDragging] = useState(false);
+  const [confirmKind, setConfirmKind] = useState<null | "clear" | "replace">(null);
+  const pendingLoad = useRef<null | (() => void)>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const columns = settings.columns;
   const headers = catalog?.headers ?? [];
+
+  function runOrConfirmReplace(action: () => void) {
+    if (!catalog) {
+      action();
+      return;
+    }
+    pendingLoad.current = action;
+    setConfirmKind("replace");
+  }
 
   async function loadSheet(urlOverride?: string) {
     const url = (urlOverride ?? settings.sheetUrl).trim();
@@ -511,7 +610,7 @@ function SourceView({
       const mapping = detectColumns(loaded.headers);
       onLoaded(
         { headers: loaded.headers, rows: loaded.rows },
-        { kind: "sheets", url, id: loaded.ref.id, gid: loaded.ref.gid },
+        { kind: "sheets", url, id: loaded.ref.id, gid: loaded.ref.gid, title: loaded.title },
         mapping,
       );
     } catch {
@@ -536,7 +635,7 @@ function SourceView({
           sheetNames: workbook.sheetNames,
           activeSheet: first,
         },
-        { kind: "file", fileName: file.name },
+        { kind: "file", fileName: file.name, title: file.name },
         mapping,
       );
     } catch {
@@ -571,7 +670,11 @@ function SourceView({
           spellCheck={false}
         />
         <p className="mt-2 px-1 text-xs leading-normal text-subtle">{tr("shareHint")}</p>
-        <Button className="mt-4 w-full" onClick={() => void loadSheet()} disabled={busy}>
+        <Button
+          className="mt-4 w-full"
+          onClick={() => runOrConfirmReplace(() => void loadSheet())}
+          disabled={busy}
+        >
           {busy ? <LoaderCircle className="animate-spin" /> : null}
           {tr("loadSheet")}
         </Button>
@@ -592,7 +695,7 @@ function SourceView({
           e.preventDefault();
           setDragging(false);
           const file = e.dataTransfer.files[0];
-          if (file) void loadFile(file);
+          if (file) runOrConfirmReplace(() => void loadFile(file));
         }}
       >
         <div className="flex items-center gap-2 px-1">
@@ -607,7 +710,7 @@ function SourceView({
           className="hidden"
           onChange={(e) => {
             const file = e.target.files?.[0];
-            if (file) void loadFile(file);
+            if (file) runOrConfirmReplace(() => void loadFile(file));
             e.currentTarget.value = "";
           }}
         />
@@ -652,6 +755,15 @@ function SourceView({
               }
             />
             <FieldSelect
+              id="col-name"
+              label={tr("productName")}
+              value={columns.name ?? ""}
+              headers={headers}
+              allowNone
+              noneLabel={tr("none")}
+              onChange={(name) => onColumnsChange({ ...columns, name: name || null })}
+            />
+            <FieldSelect
               id="col-lot"
               label={tr("lot")}
               value={columns.lot}
@@ -682,7 +794,7 @@ function SourceView({
           </p>
           <button
             type="button"
-            onClick={onClear}
+            onClick={() => setConfirmKind("clear")}
             className="mt-1 px-1 text-left text-xs text-subtle transition-colors duration-150 hover:text-danger"
           >
             {tr("clearCatalog")}
@@ -752,7 +864,42 @@ function SourceView({
             </button>
           </div>
         </div>
+        <div className="mt-4">
+          <p className="mb-2 px-1 text-xs font-medium text-muted">{tr("detailsOption")}</p>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={settings.showDetails}
+            onClick={() => onShowDetails(!settings.showDetails)}
+            className={cn(
+              "inline-flex h-11 items-center rounded-lg px-3 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out",
+              settings.showDetails
+                ? "bg-primary text-primary-foreground"
+                : "text-muted shadow-[var(--shadow-border)] hover:text-foreground",
+            )}
+          >
+            {settings.showDetails ? tr("showDetails") : tr("detailsOption")}
+          </button>
+        </div>
       </section>
+
+      <ConfirmDialog
+        open={confirmKind !== null}
+        title={confirmKind === "replace" ? tr("confirmReplaceTitle") : tr("confirmClearTitle")}
+        body={confirmKind === "replace" ? tr("confirmReplaceBody") : tr("confirmClearBody")}
+        confirmLabel={confirmKind === "replace" ? tr("confirmReplaceAction") : tr("confirmAction")}
+        cancelLabel={tr("cancel")}
+        onCancel={() => {
+          pendingLoad.current = null;
+          setConfirmKind(null);
+        }}
+        onConfirm={() => {
+          if (confirmKind === "clear") onClear();
+          else pendingLoad.current?.();
+          pendingLoad.current = null;
+          setConfirmKind(null);
+        }}
+      />
     </div>
   );
 }

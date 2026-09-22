@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, SETTINGS_KEY, type Catalog, type Settings, type Source } from "./types";
+import { coerceColumns, DEFAULT_SETTINGS, SETTINGS_KEY, type Catalog, type Settings, type Source } from "./types";
 
 const DB_NAME = "lotkeep";
 const DB_VERSION = 1;
@@ -23,12 +23,19 @@ function canUseIndexedDb(): boolean {
 
 function parseSource(value: unknown): Source | null {
   if (!value || typeof value !== "object") return null;
-  const src = value as { kind?: string; url?: string; id?: string; gid?: string; fileName?: string };
+  const src = value as {
+    kind?: string;
+    url?: string;
+    id?: string;
+    gid?: string;
+    fileName?: string;
+    title?: string;
+  };
   if (src.kind === "sheets" && src.url && src.id && src.gid) {
-    return { kind: "sheets", url: src.url, id: src.id, gid: src.gid };
+    return { kind: "sheets", url: src.url, id: src.id, gid: src.gid, title: src.title };
   }
   if (src.kind === "file" && src.fileName) {
-    return { kind: "file", fileName: src.fileName };
+    return { kind: "file", fileName: src.fileName, title: src.title };
   }
   return null;
 }
@@ -44,10 +51,12 @@ export function loadSettings(): Settings {
     return {
       sheetUrl: typeof parsed.sheetUrl === "string" ? parsed.sheetUrl : "",
       source: parseSource(parsed.source),
-      columns: parsed.columns ?? null,
+      columns: coerceColumns(parsed.columns),
       loadedAt: typeof parsed.loadedAt === "number" ? parsed.loadedAt : null,
       locale,
       theme,
+      catalogTitle: typeof parsed.catalogTitle === "string" ? parsed.catalogTitle : "",
+      showDetails: parsed.showDetails === true,
     };
   } catch {
     return { ...DEFAULT_SETTINGS };
