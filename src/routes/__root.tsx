@@ -12,6 +12,7 @@ export const Route = createRootRoute({
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { title: APP_NAME },
       { name: "theme-color", content: "#ffffff" },
+      { name: "color-scheme", content: "light dark" },
       {
         name: "description",
         content: "Artikel kodundan LOT numarası. Google Sheet veya Excel, çevrimdışı arama.",

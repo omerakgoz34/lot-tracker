@@ -5,7 +5,19 @@ const DB_VERSION = 1;
 const STORE = "kv";
 const CATALOG_KEY = "catalog.v1";
 
-function canUseBrowserStorage(): boolean {
+function canUseLocalStorage(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const key = "__depo_lot_t";
+    window.localStorage.setItem(key, "1");
+    window.localStorage.removeItem(key);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function canUseIndexedDb(): boolean {
   return typeof window !== "undefined" && typeof indexedDB !== "undefined";
 }
 
@@ -22,7 +34,7 @@ function parseSource(value: unknown): Source | null {
 }
 
 export function loadSettings(): Settings {
-  if (!canUseBrowserStorage()) return { ...DEFAULT_SETTINGS };
+  if (!canUseLocalStorage()) return { ...DEFAULT_SETTINGS };
   try {
     const raw = window.localStorage.getItem(SETTINGS_KEY);
     if (!raw) return { ...DEFAULT_SETTINGS };
@@ -43,8 +55,12 @@ export function loadSettings(): Settings {
 }
 
 export function saveSettings(settings: Settings): void {
-  if (!canUseBrowserStorage()) return;
-  window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  if (!canUseLocalStorage()) return;
+  try {
+    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  } catch {
+    // Safari private / blocked storage
+  }
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -60,7 +76,7 @@ function openDb(): Promise<IDBDatabase> {
 }
 
 export async function loadCatalog(): Promise<Catalog | null> {
-  if (!canUseBrowserStorage()) return null;
+  if (!canUseIndexedDb()) return null;
   try {
     const db = await openDb();
     return await new Promise((resolve, reject) => {
@@ -79,7 +95,7 @@ export async function loadCatalog(): Promise<Catalog | null> {
 }
 
 export async function saveCatalog(catalog: Catalog): Promise<void> {
-  if (!canUseBrowserStorage()) return;
+  if (!canUseIndexedDb()) return;
   const db = await openDb();
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(STORE, "readwrite");
@@ -93,7 +109,7 @@ export async function saveCatalog(catalog: Catalog): Promise<void> {
 }
 
 export async function clearCatalog(): Promise<void> {
-  if (!canUseBrowserStorage()) return;
+  if (!canUseIndexedDb()) return;
   try {
     const db = await openDb();
     await new Promise<void>((resolve, reject) => {

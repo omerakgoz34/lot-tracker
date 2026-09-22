@@ -105,9 +105,14 @@ html.dark {
   html {
     background-color: var(--bg);
     color: var(--fg);
+    color-scheme: light;
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  html.dark {
+    color-scheme: dark;
   }
 
   body {

@@ -45,6 +45,7 @@ function applyChrome(locale: Locale, theme: Theme) {
   const root = document.documentElement;
   root.classList.toggle("dark", theme === "dark");
   root.lang = locale;
+  root.style.colorScheme = theme === "dark" ? "dark" : "light";
   const meta = document.querySelector('meta[name="theme-color"]');
   meta?.setAttribute("content", theme === "dark" ? "#0c0d0f" : "#ffffff");
 }
@@ -81,20 +82,27 @@ export function LotKeepApp() {
     applyChrome(DEFAULT_SETTINGS.locale, DEFAULT_SETTINGS.theme);
     let cancelled = false;
     (async () => {
-      const stored = loadSettings();
-      const data = await loadCatalog();
-      if (cancelled) return;
-      applyChrome(stored.locale, stored.theme);
-      const usable = stored.source ? data : null;
-      if (!stored.source && data) void clearCatalog();
-      if (!stored.source && (stored.columns || stored.loadedAt)) {
-        stored.columns = null;
-        stored.loadedAt = null;
-        saveSettings(stored);
+      try {
+        const stored = loadSettings();
+        const data = await loadCatalog();
+        if (cancelled) return;
+        applyChrome(stored.locale, stored.theme);
+        const usable = stored.source ? data : null;
+        if (!stored.source && data) void clearCatalog();
+        if (!stored.source && (stored.columns || stored.loadedAt)) {
+          stored.columns = null;
+          stored.loadedAt = null;
+          saveSettings(stored);
+        }
+        setSettings(stored);
+        setCatalog(usable);
+        setScreen(usable && stored.columns ? "lookup" : "source");
+      } catch {
+        if (cancelled) return;
+        applyChrome(DEFAULT_SETTINGS.locale, DEFAULT_SETTINGS.theme);
+        setCatalog(null);
+        setScreen("source");
       }
-      setSettings(stored);
-      setCatalog(usable);
-      setScreen(usable && stored.columns ? "lookup" : "source");
     })();
     return () => {
       cancelled = true;

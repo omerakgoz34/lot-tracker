@@ -5,7 +5,7 @@ import { a as RefreshCw, c as FileSpreadsheet, d as ArrowLeft, i as Settings2, l
 import { n as clsx, t as cva } from "../_libs/class-variance-authority+clsx.mjs";
 import { t as Slot } from "../_libs/radix-ui__react-slot.mjs";
 import { t as twMerge } from "../_libs/tailwind-merge.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/routes-6aXl8W7e.js
+//#region node_modules/.nitro/vite/services/ssr/assets/routes-CMxXjG2k.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 function cn(...inputs) {
@@ -478,7 +478,18 @@ var DB_NAME = "lotkeep";
 var DB_VERSION = 1;
 var STORE = "kv";
 var CATALOG_KEY = "catalog.v1";
-function canUseBrowserStorage() {
+function canUseLocalStorage() {
+	if (typeof window === "undefined") return false;
+	try {
+		const key = "__depo_lot_t";
+		window.localStorage.setItem(key, "1");
+		window.localStorage.removeItem(key);
+		return true;
+	} catch {
+		return false;
+	}
+}
+function canUseIndexedDb() {
 	return typeof window !== "undefined" && typeof indexedDB !== "undefined";
 }
 function parseSource(value) {
@@ -497,7 +508,7 @@ function parseSource(value) {
 	return null;
 }
 function loadSettings() {
-	if (!canUseBrowserStorage()) return { ...DEFAULT_SETTINGS };
+	if (!canUseLocalStorage()) return { ...DEFAULT_SETTINGS };
 	try {
 		const raw = window.localStorage.getItem(SETTINGS_KEY);
 		if (!raw) return { ...DEFAULT_SETTINGS };
@@ -517,8 +528,10 @@ function loadSettings() {
 	}
 }
 function saveSettings(settings) {
-	if (!canUseBrowserStorage()) return;
-	window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+	if (!canUseLocalStorage()) return;
+	try {
+		window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+	} catch {}
 }
 function openDb() {
 	return new Promise((resolve, reject) => {
@@ -532,7 +545,7 @@ function openDb() {
 	});
 }
 async function loadCatalog() {
-	if (!canUseBrowserStorage()) return null;
+	if (!canUseIndexedDb()) return null;
 	try {
 		const db = await openDb();
 		return await new Promise((resolve, reject) => {
@@ -550,7 +563,7 @@ async function loadCatalog() {
 	}
 }
 async function saveCatalog(catalog) {
-	if (!canUseBrowserStorage()) return;
+	if (!canUseIndexedDb()) return;
 	const db = await openDb();
 	await new Promise((resolve, reject) => {
 		const tx = db.transaction(STORE, "readwrite");
@@ -563,7 +576,7 @@ async function saveCatalog(catalog) {
 	});
 }
 async function clearCatalog() {
-	if (!canUseBrowserStorage()) return;
+	if (!canUseIndexedDb()) return;
 	try {
 		const db = await openDb();
 		await new Promise((resolve, reject) => {
@@ -759,6 +772,7 @@ function applyChrome(locale, theme) {
 	const root = document.documentElement;
 	root.classList.toggle("dark", theme === "dark");
 	root.lang = locale;
+	root.style.colorScheme = theme === "dark" ? "dark" : "light";
 	document.querySelector("meta[name=\"theme-color\"]")?.setAttribute("content", theme === "dark" ? "#0c0d0f" : "#ffffff");
 }
 async function copyText(value) {
@@ -791,20 +805,27 @@ function LotKeepApp() {
 		applyChrome(DEFAULT_SETTINGS.locale, DEFAULT_SETTINGS.theme);
 		let cancelled = false;
 		(async () => {
-			const stored = loadSettings();
-			const data = await loadCatalog();
-			if (cancelled) return;
-			applyChrome(stored.locale, stored.theme);
-			const usable = stored.source ? data : null;
-			if (!stored.source && data) clearCatalog();
-			if (!stored.source && (stored.columns || stored.loadedAt)) {
-				stored.columns = null;
-				stored.loadedAt = null;
-				saveSettings(stored);
+			try {
+				const stored = loadSettings();
+				const data = await loadCatalog();
+				if (cancelled) return;
+				applyChrome(stored.locale, stored.theme);
+				const usable = stored.source ? data : null;
+				if (!stored.source && data) clearCatalog();
+				if (!stored.source && (stored.columns || stored.loadedAt)) {
+					stored.columns = null;
+					stored.loadedAt = null;
+					saveSettings(stored);
+				}
+				setSettings(stored);
+				setCatalog(usable);
+				setScreen(usable && stored.columns ? "lookup" : "source");
+			} catch {
+				if (cancelled) return;
+				applyChrome(DEFAULT_SETTINGS.locale, DEFAULT_SETTINGS.theme);
+				setCatalog(null);
+				setScreen("source");
 			}
-			setSettings(stored);
-			setCatalog(usable);
-			setScreen(usable && stored.columns ? "lookup" : "source");
 		})();
 		return () => {
 			cancelled = true;
