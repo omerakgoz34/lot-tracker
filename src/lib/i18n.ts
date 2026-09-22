@@ -25,6 +25,7 @@ export const LOCALE_BCP47: Record<Locale, string> = {
 const dict = {
   tr: {
     appName: "DEPO LOT TAKİP",
+    metaDescription: "Artikel numarasından LOT numarası bulunur.",
     tagline: "Artikel → LOT",
     loadCatalog: "Katalog yükle",
     loadHint:
@@ -59,7 +60,7 @@ const dict = {
     matchedAlt: "Alternatif lot",
     matchedLot: "LOT",
     matchedName: "Ürün adı",
-    appVersion: "v6.2",
+    appVersion: "v6.3",
     detailsShow: "Göster",
     detailsHide: "Gizle",
     noLot: "Eşleşme yok",
@@ -95,6 +96,7 @@ const dict = {
   },
   en: {
     appName: "DEPOT LOT TRACKER",
+    metaDescription: "Look up LOT numbers from article numbers.",
     tagline: "Article → LOT",
     loadCatalog: "Load a catalog",
     loadHint:
@@ -129,7 +131,7 @@ const dict = {
     matchedAlt: "Alternative lot",
     matchedLot: "LOT",
     matchedName: "Product name",
-    appVersion: "v6.2",
+    appVersion: "v6.3",
     detailsShow: "Show",
     detailsHide: "Hide",
     noLot: "No match",
@@ -165,6 +167,7 @@ const dict = {
   },
   de: {
     appName: "LAGER-LOT-VERFOLGUNG",
+    metaDescription: "LOT-Nummern zu Artikelnummern nachschlagen.",
     tagline: "Artikel → LOT",
     loadCatalog: "Katalog laden",
     loadHint:
@@ -199,7 +202,7 @@ const dict = {
     matchedAlt: "Alternativ-LOT",
     matchedLot: "LOT",
     matchedName: "Produktname",
-    appVersion: "v6.2",
+    appVersion: "v6.3",
     detailsShow: "Anzeigen",
     detailsHide: "Ausblenden",
     noLot: "Kein Treffer",

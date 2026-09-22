@@ -59,6 +59,7 @@ const html = `<!doctype html>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#ffffff" />
     <meta name="color-scheme" content="light dark" />
+    <meta name="description" content="Artikel numarasından LOT numarası bulunur." />
     <title>DEPO LOT TAKIP</title>
     <link rel="icon" type="image/svg+xml" href="./${iconName}" />
     <style>

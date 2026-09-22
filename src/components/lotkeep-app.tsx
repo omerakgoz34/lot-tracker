@@ -12,7 +12,7 @@ import {
   Settings2,
   Sun,
   Upload,
-} from "lucide-react";
+} from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Input } from "@/components/ui/input";
@@ -53,8 +53,15 @@ function applyChrome(locale: Locale, theme: Theme) {
   root.lang = locale;
   root.style.colorScheme = appearance;
   document.title = t(locale, "appName");
-  const meta = document.querySelector('meta[name="theme-color"]');
-  meta?.setAttribute("content", appearance === "dark" ? "#0c0d0f" : "#ffffff");
+  const themeMeta = document.querySelector('meta[name="theme-color"]');
+  themeMeta?.setAttribute("content", appearance === "dark" ? "#0c0d0f" : "#ffffff");
+  let description = document.querySelector('meta[name="description"]');
+  if (!description) {
+    description = document.createElement("meta");
+    description.setAttribute("name", "description");
+    document.head.appendChild(description);
+  }
+  description.setAttribute("content", t(locale, "metaDescription"));
 }
 
 function catalogSubtitle(settings: Settings): string {

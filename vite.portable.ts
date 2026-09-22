@@ -9,7 +9,13 @@ export default defineConfig({
   plugins: [tailwindcss(), react()],
   resolve: {
     tsconfigPaths: true,
-    alias: { "@": path.resolve(import.meta.dirname, "src") },
+    alias: {
+      "@": path.resolve(import.meta.dirname, "src"),
+      react: "preact/compat",
+      "react-dom/client": "preact/compat/client",
+      "react-dom": "preact/compat",
+      "react/jsx-runtime": "preact/jsx-runtime",
+    },
   },
   define: {
     "import.meta.env.VITE_PORTABLE": JSON.stringify("1"),
