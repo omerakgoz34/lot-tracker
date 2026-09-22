@@ -6,6 +6,7 @@ import {
   Copy,
   FileSpreadsheet,
   LoaderCircle,
+  Monitor,
   Moon,
   RefreshCw,
   Settings2,
@@ -16,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
 import { parseWorkbook } from "@/lib/catalog/file";
 import { buildIndex, detectColumns, lookupExact, reuseColumns } from "@/lib/catalog/parse";
 import { loadGoogleSheet, parseSheetsUrl } from "@/lib/catalog/sheets";
@@ -33,6 +35,7 @@ import {
   LOCALE_LABEL,
   LOCALES,
   localeTag,
+  resolveTheme,
   t,
   type Locale,
   type MessageKey,
@@ -44,13 +47,14 @@ type Screen = "lookup" | "source";
 
 function applyChrome(locale: Locale, theme: Theme) {
   if (typeof document === "undefined") return;
+  const appearance = resolveTheme(theme);
   const root = document.documentElement;
-  root.classList.toggle("dark", theme === "dark");
+  root.classList.toggle("dark", appearance === "dark");
   root.lang = locale;
-  root.style.colorScheme = theme === "dark" ? "dark" : "light";
+  root.style.colorScheme = appearance;
   document.title = t(locale, "appName");
   const meta = document.querySelector('meta[name="theme-color"]');
-  meta?.setAttribute("content", theme === "dark" ? "#0c0d0f" : "#ffffff");
+  meta?.setAttribute("content", appearance === "dark" ? "#0c0d0f" : "#ffffff");
 }
 
 function catalogSubtitle(settings: Settings): string {
@@ -140,6 +144,15 @@ export function LotKeepApp() {
     applyChrome(next.locale, next.theme);
   }, []);
 
+  useEffect(() => {
+    applyChrome(settings.locale, settings.theme);
+    if (settings.theme !== "system" || typeof window === "undefined") return;
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = () => applyChrome(settings.locale, "system");
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, [settings.locale, settings.theme]);
+
   const persist = useCallback((next: Settings, nextCatalog: Catalog | null) => {
     persistSettings(next);
     setCatalog(nextCatalog);
@@ -220,6 +233,7 @@ export function LotKeepApp() {
   const tr = useCallback((key: MessageKey) => t(locale, key), [locale]);
 
   return (
+    <TooltipProvider>
     <div className="flex min-h-dvh flex-col px-4 pb-8 pt-4 sm:px-6">
       <div className="mx-auto flex w-full max-w-xl flex-1 flex-col">
         <Header
@@ -259,6 +273,7 @@ export function LotKeepApp() {
         )}
       </div>
     </div>
+    </TooltipProvider>
   );
 }
 
@@ -283,7 +298,7 @@ function Header({
   return (
     <header className="mb-6 flex items-center justify-between gap-3">
       <div className="flex min-w-0 items-center gap-3">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-card shadow-[var(--shadow-border)]">
+        <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-card-2 shadow-[var(--shadow-border)]">
           <LotMark />
         </span>
         <div className="min-w-0">
@@ -324,22 +339,30 @@ function Header({
 
 function LotMark() {
   return (
-    <svg viewBox="0 0 24 24" className="size-5" aria-hidden="true">
+    <svg viewBox="0 0 24 24" className="size-full" aria-hidden="true">
       <rect
-        x="5.5"
-        y="4.5"
-        width="13"
-        height="15"
-        rx="1.8"
+        x="1"
+        y="0.75"
+        width="22"
+        height="22.5"
+        rx="2.6"
         fill="currentColor"
         className="text-paper"
+      />
+      <rect
+        x="1"
+        y="0.75"
+        width="22"
+        height="22.5"
+        rx="2.6"
+        fill="none"
         stroke="currentColor"
-        strokeWidth="1"
+        strokeWidth="1.2"
         style={{ stroke: "color-mix(in oklab, var(--ink) 28%, transparent)" }}
       />
-      <circle cx="12" cy="8" r="1.4" fill="currentColor" className="text-hole" />
-      <rect x="8" y="12" width="8" height="1.6" rx="0.6" fill="currentColor" className="text-accent-deep" />
-      <rect x="8" y="15.4" width="5.5" height="1.6" rx="0.6" fill="currentColor" className="text-ink" />
+      <circle cx="12" cy="6.6" r="2.05" fill="currentColor" className="text-hole" />
+      <rect x="5" y="11.4" width="14" height="2.3" rx="0.7" fill="currentColor" className="text-accent-deep" />
+      <rect x="5" y="16.4" width="9.5" height="2.3" rx="0.7" fill="currentColor" className="text-ink" />
     </svg>
   );
 }
@@ -519,14 +542,16 @@ function LotTag({
         <p className="min-w-0 break-all font-mono text-lot font-medium leading-none tracking-tight text-ink">
           {hit.lot || "—"}
         </p>
-        <button
-          type="button"
-          className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-ink-muted"
-          onClick={() => void copyLot()}
-          aria-label={`${tr("lot")} ${hit.lot}. ${tr("copy")}`}
-        >
-          {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-        </button>
+        <Tooltip label={copied ? tr("copied") : tr("copy")}>
+          <button
+            type="button"
+            className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-ink-muted"
+            onClick={() => void copyLot()}
+            aria-label={`${tr("lot")} ${hit.lot}. ${tr("copy")}`}
+          >
+            {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+          </button>
+        </Tooltip>
       </div>
       {hit.article ? (
         <p className="mt-3 break-all font-mono text-sm text-ink">{hit.article}</p>
@@ -723,6 +748,7 @@ function SourceView({
           className="mt-4 w-full"
           onClick={() => runOrConfirmReplace(() => void loadSheet())}
           disabled={busy}
+          tooltip={tr("loadSheet")}
         >
           {busy ? <LoaderCircle className="animate-spin" /> : null}
           {tr("loadSheet")}
@@ -768,6 +794,7 @@ function SourceView({
           className="mt-4 w-full"
           onClick={() => fileRef.current?.click()}
           disabled={busy}
+          tooltip={tr("chooseFile")}
         >
           {tr("chooseFile")}
         </Button>
@@ -822,7 +849,7 @@ function SourceView({
             />
           </div>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-            <Button className="flex-1" onClick={onDone}>
+            <Button className="flex-1" onClick={onDone} tooltip={tr("lookUp")}>
               {tr("lookUp")}
             </Button>
             {settings.source?.kind === "sheets" ? (
@@ -835,6 +862,7 @@ function SourceView({
                   )
                 }
                 disabled={busy}
+                tooltip={tr("refresh")}
               >
                 <RefreshCw />
                 {tr("refresh")}
@@ -917,6 +945,21 @@ function SourceView({
             >
               <Moon className="size-4" />
               {tr("themeDark")}
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={settings.theme === "system"}
+              onClick={() => onTheme("system")}
+              className={cn(
+                "inline-flex h-11 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out",
+                settings.theme === "system"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted shadow-[var(--shadow-border)] hover:text-foreground",
+              )}
+            >
+              <Monitor className="size-4" />
+              {tr("themeSystem")}
             </button>
           </div>
         </div>

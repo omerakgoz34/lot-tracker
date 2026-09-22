@@ -1,7 +1,14 @@
 export type Locale = "tr" | "en" | "de";
-export type Theme = "light" | "dark";
+export type Theme = "light" | "dark" | "system";
 
+export const THEMES: Theme[] = ["light", "dark", "system"];
 export const LOCALES: Locale[] = ["tr", "en", "de"];
+
+export function resolveTheme(theme: Theme): "light" | "dark" {
+  if (theme !== "system") return theme;
+  if (typeof window === "undefined") return "light";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
 
 export const LOCALE_LABEL: Record<Locale, string> = {
   tr: "Türkçe",
@@ -52,7 +59,7 @@ const dict = {
     matchedAlt: "Alternatif lot",
     matchedLot: "LOT",
     matchedName: "Ürün adı",
-    appVersion: "V6",
+    appVersion: "v6.1",
     detailsShow: "Göster",
     detailsHide: "Gizle",
     noLot: "Eşleşme yok",
@@ -69,6 +76,7 @@ const dict = {
     back: "Aramaya dön",
     themeLight: "Açık",
     themeDark: "Koyu",
+    themeSystem: "Sistem",
     catalog: "Katalog",
     language: "Dil",
     appearance: "Görünüm",
@@ -121,7 +129,7 @@ const dict = {
     matchedAlt: "Alternative lot",
     matchedLot: "LOT",
     matchedName: "Product name",
-    appVersion: "V6",
+    appVersion: "v6.1",
     detailsShow: "Show",
     detailsHide: "Hide",
     noLot: "No match",
@@ -138,6 +146,7 @@ const dict = {
     back: "Back to lookup",
     themeLight: "Light",
     themeDark: "Dark",
+    themeSystem: "System",
     catalog: "Catalog",
     language: "Language",
     appearance: "Appearance",
@@ -190,7 +199,7 @@ const dict = {
     matchedAlt: "Alternativ-LOT",
     matchedLot: "LOT",
     matchedName: "Produktname",
-    appVersion: "V6",
+    appVersion: "v6.1",
     detailsShow: "Anzeigen",
     detailsHide: "Ausblenden",
     noLot: "Kein Treffer",
@@ -207,6 +216,7 @@ const dict = {
     back: "Zurück zur Suche",
     themeLight: "Hell",
     themeDark: "Dunkel",
+    themeSystem: "System",
     catalog: "Katalog",
     language: "Sprache",
     appearance: "Darstellung",

@@ -1,15 +1,34 @@
 import { i as __toESM } from "../_runtime.mjs";
-import { n as require_react } from "../_libs/@radix-ui/react-compose-refs+[...].mjs";
-import { v as require_jsx_runtime } from "../_libs/@tanstack/react-router+[...].mjs";
-import { a as RefreshCw, c as FileSpreadsheet, d as Check, f as ArrowLeft, i as Settings2, l as Copy, o as Moon, r as Sun, s as LoaderCircle, t as Upload, u as ChevronDown } from "../_libs/lucide-react.mjs";
+import { u as require_react } from "../_libs/@floating-ui/react-dom+[...].mjs";
+import { n as require_jsx_runtime } from "../_libs/radix-ui__react-context+react.mjs";
+import { a as RefreshCw, c as LoaderCircle, d as ChevronDown, f as Check, i as Settings2, l as FileSpreadsheet, o as Moon, p as ArrowLeft, r as Sun, s as Monitor, t as Upload, u as Copy } from "../_libs/lucide-react.mjs";
 import { n as clsx, t as cva } from "../_libs/class-variance-authority+clsx.mjs";
-import { t as Slot } from "../_libs/radix-ui__react-slot.mjs";
+import { i as Slot } from "../_libs/@radix-ui/react-dismissable-layer+[...].mjs";
+import { a as Trigger, i as Root3, n as Portal, r as Provider, t as Content2 } from "../_libs/@radix-ui/react-tooltip+[...].mjs";
 import { t as twMerge } from "../_libs/tailwind-merge.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/routes-C8ijTy6M.js
+//#region node_modules/.nitro/vite/services/ssr/assets/routes-pZ4wryla.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 function cn(...inputs) {
 	return twMerge(clsx(inputs));
+}
+function TooltipProvider({ children }) {
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Provider, {
+		delayDuration: 250,
+		skipDelayDuration: 0,
+		children
+	});
+}
+function Tooltip({ label, children, side = "bottom" }) {
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Root3, { children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Trigger, {
+		asChild: true,
+		children
+	}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Portal, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Content2, {
+		side,
+		sideOffset: 6,
+		className: cn("z-50 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground", "shadow-[var(--shadow-border)]"),
+		children: label
+	}) })] });
 }
 var buttonVariants = cva("inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-[color,background-color,box-shadow,transform,opacity] duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-40 active:not-disabled:scale-[0.96] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0", {
 	variants: {
@@ -31,15 +50,30 @@ var buttonVariants = cva("inline-flex items-center justify-center gap-2 whitespa
 		size: "default"
 	}
 });
-var Button = import_react.forwardRef(({ className, variant, size, asChild = false, ...props }, ref) => {
-	return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(asChild ? Slot : "button", {
+var Button = import_react.forwardRef(({ className, variant, size, asChild = false, tooltip, disabled, ...props }, ref) => {
+	const Comp = asChild ? Slot : "button";
+	const label = tooltip || props["aria-label"];
+	const button = /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Comp, {
 		className: cn(buttonVariants({
 			variant,
 			size,
 			className
 		})),
 		ref,
+		disabled,
 		...props
+	});
+	if (!label) return button;
+	if (disabled) return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Tooltip, {
+		label,
+		children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+			className: "inline-flex",
+			children: button
+		})
+	});
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Tooltip, {
+		label,
+		children: button
 	});
 });
 Button.displayName = "Button";
@@ -88,11 +122,13 @@ function ConfirmDialog({ open, title, body, confirmLabel, cancelLabel, danger = 
 						variant: "secondary",
 						className: "sm:min-w-28",
 						onClick: onCancel,
+						tooltip: cancelLabel,
 						children: cancelLabel
 					}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
 						variant: danger ? "danger" : "default",
 						className: "sm:min-w-28",
 						onClick: onConfirm,
+						tooltip: confirmLabel,
 						children: confirmLabel
 					})]
 				})
@@ -725,7 +761,7 @@ function loadSettings() {
 		if (!raw) return { ...DEFAULT_SETTINGS };
 		const parsed = JSON.parse(raw);
 		const locale = parsed.locale === "en" || parsed.locale === "de" ? parsed.locale : "tr";
-		const theme = parsed.theme === "dark" ? "dark" : "light";
+		const theme = parsed.theme === "dark" || parsed.theme === "system" ? parsed.theme : "light";
 		return {
 			sheetUrl: typeof parsed.sheetUrl === "string" ? parsed.sheetUrl : "",
 			source: parseSource(parsed.source),
@@ -840,6 +876,11 @@ var LOCALES = [
 	"en",
 	"de"
 ];
+function resolveTheme(theme) {
+	if (theme !== "system") return theme;
+	if (typeof window === "undefined") return "light";
+	return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
 var LOCALE_LABEL = {
 	tr: "Türkçe",
 	en: "English",
@@ -898,6 +939,7 @@ var dict = {
 		back: "Aramaya dön",
 		themeLight: "Açık",
 		themeDark: "Koyu",
+		themeSystem: "Sistem",
 		catalog: "Katalog",
 		language: "Dil",
 		appearance: "Görünüm",
@@ -966,6 +1008,7 @@ var dict = {
 		back: "Back to lookup",
 		themeLight: "Light",
 		themeDark: "Dark",
+		themeSystem: "System",
 		catalog: "Catalog",
 		language: "Language",
 		appearance: "Appearance",
@@ -1034,6 +1077,7 @@ var dict = {
 		back: "Zurück zur Suche",
 		themeLight: "Hell",
 		themeDark: "Dunkel",
+		themeSystem: "System",
 		catalog: "Katalog",
 		language: "Sprache",
 		appearance: "Darstellung",
@@ -1068,12 +1112,13 @@ function localeTag(locale) {
 }
 function applyChrome(locale, theme) {
 	if (typeof document === "undefined") return;
+	const appearance = resolveTheme(theme);
 	const root = document.documentElement;
-	root.classList.toggle("dark", theme === "dark");
+	root.classList.toggle("dark", appearance === "dark");
 	root.lang = locale;
-	root.style.colorScheme = theme === "dark" ? "dark" : "light";
+	root.style.colorScheme = appearance;
 	document.title = t(locale, "appName");
-	document.querySelector("meta[name=\"theme-color\"]")?.setAttribute("content", theme === "dark" ? "#0c0d0f" : "#ffffff");
+	document.querySelector("meta[name=\"theme-color\"]")?.setAttribute("content", appearance === "dark" ? "#0c0d0f" : "#ffffff");
 }
 function catalogSubtitle(settings) {
 	const tr = (key) => t(settings.locale, key);
@@ -1151,6 +1196,14 @@ function LotKeepApp() {
 		saveSettings(next);
 		applyChrome(next.locale, next.theme);
 	}, []);
+	(0, import_react.useEffect)(() => {
+		applyChrome(settings.locale, settings.theme);
+		if (settings.theme !== "system" || typeof window === "undefined") return;
+		const mq = window.matchMedia("(prefers-color-scheme: dark)");
+		const onChange = () => applyChrome(settings.locale, "system");
+		mq.addEventListener("change", onChange);
+		return () => mq.removeEventListener("change", onChange);
+	}, [settings.locale, settings.theme]);
 	const persist = (0, import_react.useCallback)((next, nextCatalog) => {
 		persistSettings(next);
 		setCatalog(nextCatalog);
@@ -1214,7 +1267,7 @@ function LotKeepApp() {
 	const index = (0, import_react.useMemo)(() => catalog && columns ? buildIndex(catalog.rows, columns) : null, [catalog, columns]);
 	const locale = settings.locale;
 	const tr = (0, import_react.useCallback)((key) => t(locale, key), [locale]);
-	return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(TooltipProvider, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
 		className: "flex min-h-dvh flex-col px-4 pb-8 pt-4 sm:px-6",
 		children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
 			className: "mx-auto flex w-full max-w-xl flex-1 flex-col",
@@ -1261,7 +1314,7 @@ function LotKeepApp() {
 				onOpenSource: () => setScreen("source")
 			})]
 		})
-	});
+	}) });
 }
 function Header({ settings, hasCatalog, screen, busy, onToggle, onRefresh }) {
 	const tr = (key) => t(settings.locale, key);
@@ -1272,7 +1325,7 @@ function Header({ settings, hasCatalog, screen, busy, onToggle, onRefresh }) {
 		children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
 			className: "flex min-w-0 items-center gap-3",
 			children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
-				className: "flex size-9 shrink-0 items-center justify-center rounded-md bg-card shadow-[var(--shadow-border)]",
+				className: "flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-card-2 shadow-[var(--shadow-border)]",
 				children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(LotMark, {})
 			}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
 				className: "min-w-0",
@@ -1308,43 +1361,51 @@ function Header({ settings, hasCatalog, screen, busy, onToggle, onRefresh }) {
 function LotMark() {
 	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("svg", {
 		viewBox: "0 0 24 24",
-		className: "size-5",
+		className: "size-full",
 		"aria-hidden": "true",
 		children: [
 			/* @__PURE__ */ (0, import_jsx_runtime.jsx)("rect", {
-				x: "5.5",
-				y: "4.5",
-				width: "13",
-				height: "15",
-				rx: "1.8",
+				x: "1",
+				y: "0.75",
+				width: "22",
+				height: "22.5",
+				rx: "2.6",
 				fill: "currentColor",
-				className: "text-paper",
+				className: "text-paper"
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)("rect", {
+				x: "1",
+				y: "0.75",
+				width: "22",
+				height: "22.5",
+				rx: "2.6",
+				fill: "none",
 				stroke: "currentColor",
-				strokeWidth: "1",
+				strokeWidth: "1.2",
 				style: { stroke: "color-mix(in oklab, var(--ink) 28%, transparent)" }
 			}),
 			/* @__PURE__ */ (0, import_jsx_runtime.jsx)("circle", {
 				cx: "12",
-				cy: "8",
-				r: "1.4",
+				cy: "6.6",
+				r: "2.05",
 				fill: "currentColor",
 				className: "text-hole"
 			}),
 			/* @__PURE__ */ (0, import_jsx_runtime.jsx)("rect", {
-				x: "8",
-				y: "12",
-				width: "8",
-				height: "1.6",
-				rx: "0.6",
+				x: "5",
+				y: "11.4",
+				width: "14",
+				height: "2.3",
+				rx: "0.7",
 				fill: "currentColor",
 				className: "text-accent-deep"
 			}),
 			/* @__PURE__ */ (0, import_jsx_runtime.jsx)("rect", {
-				x: "8",
-				y: "15.4",
-				width: "5.5",
-				height: "1.6",
-				rx: "0.6",
+				x: "5",
+				y: "16.4",
+				width: "9.5",
+				height: "2.3",
+				rx: "0.7",
 				fill: "currentColor",
 				className: "text-ink"
 			})
@@ -1492,12 +1553,15 @@ function LotTag({ hit, tr, defaultOpen }) {
 				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
 					className: "min-w-0 break-all font-mono text-lot font-medium leading-none tracking-tight text-ink",
 					children: hit.lot || "—"
-				}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
-					type: "button",
-					className: "inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-ink-muted",
-					onClick: () => void copyLot(),
-					"aria-label": `${tr("lot")} ${hit.lot}. ${tr("copy")}`,
-					children: copied ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Check, { className: "size-4" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Copy, { className: "size-4" })
+				}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Tooltip, {
+					label: copied ? tr("copied") : tr("copy"),
+					children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
+						type: "button",
+						className: "inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-ink-muted",
+						onClick: () => void copyLot(),
+						"aria-label": `${tr("lot")} ${hit.lot}. ${tr("copy")}`,
+						children: copied ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Check, { className: "size-4" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Copy, { className: "size-4" })
+					})
 				})]
 			}),
 			hit.article ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
@@ -1703,6 +1767,7 @@ function SourceView({ settings, catalog, busy, error, tr, setBusy, setError, set
 						className: "mt-4 w-full",
 						onClick: () => runOrConfirmReplace(() => void loadSheet()),
 						disabled: busy,
+						tooltip: tr("loadSheet"),
 						children: [busy ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(LoaderCircle, { className: "animate-spin" }) : null, tr("loadSheet")]
 					})
 				]
@@ -1752,6 +1817,7 @@ function SourceView({ settings, catalog, busy, error, tr, setBusy, setError, set
 						className: "mt-4 w-full",
 						onClick: () => fileRef.current?.click(),
 						disabled: busy,
+						tooltip: tr("chooseFile"),
 						children: tr("chooseFile")
 					})
 				]
@@ -1828,11 +1894,13 @@ function SourceView({ settings, catalog, busy, error, tr, setBusy, setError, set
 						children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
 							className: "flex-1",
 							onClick: onDone,
+							tooltip: tr("lookUp"),
 							children: tr("lookUp")
 						}), settings.source?.kind === "sheets" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Button, {
 							variant: "secondary",
 							onClick: () => void loadSheet(settings.source?.kind === "sheets" ? settings.source.url : void 0, { preserveColumns: true }),
 							disabled: busy,
+							tooltip: tr("refresh"),
 							children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(RefreshCw, {}), tr("refresh")]
 						}) : null]
 					}),
@@ -1892,21 +1960,32 @@ function SourceView({ settings, catalog, busy, error, tr, setBusy, setError, set
 							className: "flex flex-wrap gap-1",
 							role: "radiogroup",
 							"aria-label": tr("appearance"),
-							children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
-								type: "button",
-								role: "radio",
-								"aria-checked": settings.theme === "light",
-								onClick: () => onTheme("light"),
-								className: cn("inline-flex h-11 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out", settings.theme === "light" ? "bg-primary text-primary-foreground" : "text-muted shadow-[var(--shadow-border)] hover:text-foreground"),
-								children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Sun, { className: "size-4" }), tr("themeLight")]
-							}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
-								type: "button",
-								role: "radio",
-								"aria-checked": settings.theme === "dark",
-								onClick: () => onTheme("dark"),
-								className: cn("inline-flex h-11 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out", settings.theme === "dark" ? "bg-primary text-primary-foreground" : "text-muted shadow-[var(--shadow-border)] hover:text-foreground"),
-								children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Moon, { className: "size-4" }), tr("themeDark")]
-							})]
+							children: [
+								/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
+									type: "button",
+									role: "radio",
+									"aria-checked": settings.theme === "light",
+									onClick: () => onTheme("light"),
+									className: cn("inline-flex h-11 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out", settings.theme === "light" ? "bg-primary text-primary-foreground" : "text-muted shadow-[var(--shadow-border)] hover:text-foreground"),
+									children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Sun, { className: "size-4" }), tr("themeLight")]
+								}),
+								/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
+									type: "button",
+									role: "radio",
+									"aria-checked": settings.theme === "dark",
+									onClick: () => onTheme("dark"),
+									className: cn("inline-flex h-11 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out", settings.theme === "dark" ? "bg-primary text-primary-foreground" : "text-muted shadow-[var(--shadow-border)] hover:text-foreground"),
+									children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Moon, { className: "size-4" }), tr("themeDark")]
+								}),
+								/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
+									type: "button",
+									role: "radio",
+									"aria-checked": settings.theme === "system",
+									onClick: () => onTheme("system"),
+									className: cn("inline-flex h-11 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out", settings.theme === "system" ? "bg-primary text-primary-foreground" : "text-muted shadow-[var(--shadow-border)] hover:text-foreground"),
+									children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Monitor, { className: "size-4" }), tr("themeSystem")]
+								})
+							]
 						})]
 					}),
 					/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {

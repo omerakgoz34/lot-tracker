@@ -7,8 +7,8 @@
       "status": 200,
       "title": "DEPO LOT TAKİP",
       "hasCanvas": false,
-      "bodyTextLen": 516,
-      "bodyTextHash": "3a7fff262001f84178bfca063a6b2f70060d0f8e262c01f1157164da002383d4",
+      "bodyTextLen": 523,
+      "bodyTextHash": "d78bc8de8a26bd19cc355a5cadfa6aca7106593fbb2590839c786f2f58b96d59",
       "bodyTextPrefix": "DEPO LOT TAKİP Artikel → LOT Katalog yükle Google Sheets bağlant",
       "horizontalOverflow": false,
       "consoleErrors": [],
@@ -21,8 +21,8 @@
       "status": 200,
       "title": "DEPO LOT TAKİP",
       "hasCanvas": false,
-      "bodyTextLen": 516,
-      "bodyTextHash": "3a7fff262001f84178bfca063a6b2f70060d0f8e262c01f1157164da002383d4",
+      "bodyTextLen": 523,
+      "bodyTextHash": "d78bc8de8a26bd19cc355a5cadfa6aca7106593fbb2590839c786f2f58b96d59",
       "bodyTextPrefix": "DEPO LOT TAKİP Artikel → LOT Katalog yükle Google Sheets bağlant",
       "horizontalOverflow": false,
       "consoleErrors": [],
@@ -34,7 +34,5 @@
     "BRAND NOTE: no custom public/og.jpg — the platform will serve the og.grok.me placeholder. Custom cards are the default for games of every kind (DOM board/word games included), whimsical apps, creative tools, and brand-forward pages — only plain utilities (converters, CRUD trackers, admin dashboards) keep the placeholder. If this app is not a plain utility, finish the brand-asset pass per /workspace/.grok/skills/og/SKILL.md."
   ],
   "authWarnings": [],
-  "verdictFile": "/workspace/screenshots/app-builder-built.json",
-  "divergesFromBaseline": false,
-  "baselineReasons": []
+  "verdictFile": "/workspace/screenshots/app-builder-built.json"
 }

@@ -48,7 +48,8 @@ export function loadSettings(): Settings {
     if (!raw) return { ...DEFAULT_SETTINGS };
     const parsed = JSON.parse(raw) as Partial<Settings> & { source?: unknown };
     const locale = parsed.locale === "en" || parsed.locale === "de" ? parsed.locale : "tr";
-    const theme = parsed.theme === "dark" ? "dark" : "light";
+    const theme =
+      parsed.theme === "dark" || parsed.theme === "system" ? parsed.theme : "light";
     return {
       sheetUrl: typeof parsed.sheetUrl === "string" ? parsed.sheetUrl : "",
       source: parseSource(parsed.source),

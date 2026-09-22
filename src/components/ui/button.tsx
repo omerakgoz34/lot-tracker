@@ -1,6 +1,7 @@
 import { cva, type VariantProps } from "class-variance-authority";
 import { Slot } from "@radix-ui/react-slot";
 import * as React from "react";
+import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
@@ -31,14 +32,32 @@ const buttonVariants = cva(
 type ButtonProps = React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean;
+    tooltip?: string;
   };
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, tooltip, disabled, ...props }, ref) => {
     const Comp = asChild ? Slot : "button";
-    return (
-      <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />
+    const label = tooltip || props["aria-label"];
+    const button = (
+      <Comp
+        className={cn(buttonVariants({ variant, size, className }))}
+        ref={ref}
+        disabled={disabled}
+        {...props}
+      />
     );
+    if (!label) return button;
+    if (disabled) {
+      return (
+        <Tooltip label={label}>
+          <span className="inline-flex">
+            {button}
+          </span>
+        </Tooltip>
+      );
+    }
+    return <Tooltip label={label}>{button}</Tooltip>;
   },
 );
 Button.displayName = "Button";

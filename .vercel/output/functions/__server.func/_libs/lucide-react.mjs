@@ -1,5 +1,5 @@
 import { i as __toESM } from "../_runtime.mjs";
-import { n as require_react } from "./@radix-ui/react-compose-refs+[...].mjs";
+import { u as require_react } from "./@floating-ui/react-dom+[...].mjs";
 //#region node_modules/lucide-react/dist/esm/shared/src/utils.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 /**
@@ -175,6 +175,36 @@ var LoaderCircle = createLucideIcon("loader-circle", [["path", {
 * This source code is licensed under the ISC license.
 * See the LICENSE file in the root directory of this source tree.
 */
+var Monitor = createLucideIcon("monitor", [
+	["rect", {
+		width: "20",
+		height: "14",
+		x: "2",
+		y: "3",
+		rx: "2",
+		key: "48i651"
+	}],
+	["line", {
+		x1: "8",
+		x2: "16",
+		y1: "21",
+		y2: "21",
+		key: "1svkeh"
+	}],
+	["line", {
+		x1: "12",
+		x2: "12",
+		y1: "17",
+		y2: "21",
+		key: "vw1qmm"
+	}]
+]);
+/**
+* @license lucide-react v0.510.0 - ISC
+*
+* This source code is licensed under the ISC license.
+* See the LICENSE file in the root directory of this source tree.
+*/
 var Moon = createLucideIcon("moon", [["path", {
 	d: "M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z",
 	key: "a7tn18"
@@ -321,4 +351,4 @@ var Upload = createLucideIcon("upload", [
 	}]
 ]);
 //#endregion
-export { RefreshCw as a, FileSpreadsheet as c, Check as d, ArrowLeft as f, Settings2 as i, Copy as l, TriangleAlert as n, Moon as o, Sun as r, LoaderCircle as s, Upload as t, ChevronDown as u };
+export { RefreshCw as a, LoaderCircle as c, ChevronDown as d, Check as f, Settings2 as i, FileSpreadsheet as l, TriangleAlert as n, Moon as o, ArrowLeft as p, Sun as r, Monitor as s, Upload as t, Copy as u };
