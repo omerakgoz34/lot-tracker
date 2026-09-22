@@ -7,7 +7,7 @@ import { build } from "vite";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = join(root, "public");
 
-await cleanPortableFiles(outDir);
+await cleanProductionFiles(outDir);
 await build({ configFile: join(root, "vite.portable.ts") });
 await build({ configFile: join(root, "vite.portable-xlsx.ts") });
 
@@ -28,21 +28,21 @@ let xlsxName = pick(files, /^xlsx-.+\.js$/);
 
 if (!scriptName) {
   const js = files.find((name) => name.endsWith(".js") && !name.startsWith("xlsx-"));
-  if (!js) throw new Error("portable build produced no JS");
+  if (!js) throw new Error("production build produced no JS");
   scriptName = await hashedName("scripts", join(outDir, js));
   await writeFile(join(outDir, scriptName), await readFile(join(outDir, js)));
   if (js !== scriptName) await rm(join(outDir, js), { force: true });
 }
 if (!styleName) {
   const css = files.find((name) => name.endsWith(".css"));
-  if (!css) throw new Error("portable build produced no CSS");
+  if (!css) throw new Error("production build produced no CSS");
   styleName = await hashedName("styles", join(outDir, css));
   await writeFile(join(outDir, styleName), await readFile(join(outDir, css)));
   if (css !== styleName) await rm(join(outDir, css), { force: true });
 }
 if (!xlsxName) {
   const js = files.find((name) => name.startsWith("xlsx-") && name.endsWith(".js"));
-  if (!js) throw new Error("portable build produced no xlsx chunk");
+  if (!js) throw new Error("production build produced no xlsx chunk");
   xlsxName = js;
 }
 
@@ -99,7 +99,7 @@ const listed = (await readdir(outDir))
     /\.(woff2?|otf|ttf)$/.test(name),
   )
   .sort();
-console.log(`[portable] public/${listed.join(", public/")}`);
+console.log(`[production] public/${listed.join(", public/")}`);
 
 async function fontNameIndex() {
   const index = new Map();
@@ -146,11 +146,11 @@ async function extractCssFonts(cssPath, dir) {
   return cssPath.split("/").pop();
 }
 
-async function cleanPortableFiles(dir) {
+async function cleanProductionFiles(dir) {
   const names = await readdir(dir);
   for (const name of names) {
     if (name === "__grok" || name === "favicon.svg") continue;
-    const portable =
+    const generated =
       name === "index.html" ||
       name === "BASLAT.bat" ||
       /^scripts-.+\.js$/.test(name) ||
@@ -159,6 +159,6 @@ async function cleanPortableFiles(dir) {
       /^icon-.+\.svg$/.test(name) ||
       /^font-.+\.(woff2|woff|otf|ttf)$/.test(name) ||
       /^ibm-plex-.+\.(woff2|woff|otf|ttf)$/.test(name);
-    if (portable) await rm(join(dir, name), { force: true });
+    if (generated) await rm(join(dir, name), { force: true });
   }
 }

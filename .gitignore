@@ -11,6 +11,6 @@ attachments/
 *.log
 .DS_Store
 
-# generated portable site — keep only the hand-authored favicon
+# generated production site — keep only the hand-authored favicon
 /public/*
 !/public/favicon.svg

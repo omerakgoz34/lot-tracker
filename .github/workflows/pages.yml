@@ -28,7 +28,7 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm run build:portable
+      - run: pnpm run production
       - name: Prepare site
         run: |
           rm -rf public/__grok
