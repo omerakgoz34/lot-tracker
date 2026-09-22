@@ -5,7 +5,7 @@ import { a as RefreshCw, c as FileSpreadsheet, d as Check, f as ArrowLeft, i as 
 import { n as clsx, t as cva } from "../_libs/class-variance-authority+clsx.mjs";
 import { t as Slot } from "../_libs/radix-ui__react-slot.mjs";
 import { t as twMerge } from "../_libs/tailwind-merge.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/routes-C7fcovw3.js
+//#region node_modules/.nitro/vite/services/ssr/assets/routes-C8ijTy6M.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 function cn(...inputs) {
@@ -881,7 +881,9 @@ var dict = {
 		matchedAlt: "Alternatif lot",
 		matchedLot: "LOT",
 		matchedName: "Ürün adı",
-		appVersion: "V5",
+		appVersion: "V6",
+		detailsShow: "Göster",
+		detailsHide: "Gizle",
 		noLot: "Eşleşme yok",
 		missHint: "Artikel, alternatif artikel ve LOT için tam eşleşme; ürün adı için metin araması kullanılır.",
 		pasteLinkFirst: "Önce bir Google Sheets bağlantısı yapıştırın.",
@@ -913,7 +915,7 @@ var dict = {
 		cancel: "Vazgeç"
 	},
 	en: {
-		appName: "DEPO LOT TAKİP",
+		appName: "DEPOT LOT TRACKER",
 		tagline: "Article → LOT",
 		loadCatalog: "Load a catalog",
 		loadHint: "Paste a Google Sheets link or drop an Excel file. Lookups stay on this device and work offline after the catalog is loaded.",
@@ -947,7 +949,9 @@ var dict = {
 		matchedAlt: "Alternative lot",
 		matchedLot: "LOT",
 		matchedName: "Product name",
-		appVersion: "V5",
+		appVersion: "V6",
+		detailsShow: "Show",
+		detailsHide: "Hide",
 		noLot: "No match",
 		missHint: "Article, alternative article, and LOT use exact match. Product names use text search.",
 		pasteLinkFirst: "Paste a Google Sheets link first.",
@@ -979,7 +983,7 @@ var dict = {
 		cancel: "Cancel"
 	},
 	de: {
-		appName: "DEPO LOT TAKİP",
+		appName: "LAGER-LOT-VERFOLGUNG",
 		tagline: "Artikel → LOT",
 		loadCatalog: "Katalog laden",
 		loadHint: "Fügen Sie einen Google-Sheets-Link ein oder legen Sie eine Excel-Datei ab. Nach dem Laden funktionieren Suchen auf diesem Gerät auch offline.",
@@ -1013,7 +1017,9 @@ var dict = {
 		matchedAlt: "Alternativ-LOT",
 		matchedLot: "LOT",
 		matchedName: "Produktname",
-		appVersion: "V5",
+		appVersion: "V6",
+		detailsShow: "Anzeigen",
+		detailsHide: "Ausblenden",
 		noLot: "Kein Treffer",
 		missHint: "Artikel, Alternativartikel und LOT exakt. Produktnamen als Textsuche.",
 		pasteLinkFirst: "Zuerst einen Google-Sheets-Link einfügen.",
@@ -1069,8 +1075,11 @@ function applyChrome(locale, theme) {
 	document.title = t(locale, "appName");
 	document.querySelector("meta[name=\"theme-color\"]")?.setAttribute("content", theme === "dark" ? "#0c0d0f" : "#ffffff");
 }
-function chromeTitle(settings) {
-	return settings.catalogTitle || t(settings.locale, "appName");
+function catalogSubtitle(settings) {
+	const tr = (key) => t(settings.locale, key);
+	if (settings.source?.kind === "file") return settings.source.fileName;
+	if (settings.source?.kind === "sheets") return settings.catalogTitle || settings.source.title || tr("googleSheet");
+	return tr("tagline");
 }
 async function copyText(value) {
 	try {
@@ -1177,6 +1186,30 @@ function LotKeepApp() {
 		setScreen("source");
 		setError(null);
 	}, [persist, settings]);
+	const onRefreshSheet = (0, import_react.useCallback)(async () => {
+		if (settings.source?.kind !== "sheets") return;
+		setBusy(true);
+		setError(null);
+		try {
+			const loaded = await loadGoogleSheet(settings.source.url);
+			const mapping = reuseColumns(settings.columns, loaded.headers);
+			onLoaded({
+				headers: loaded.headers,
+				rows: loaded.rows
+			}, {
+				kind: "sheets",
+				url: settings.source.url,
+				id: loaded.ref.id,
+				gid: loaded.ref.gid,
+				title: loaded.title || settings.source.title
+			}, mapping);
+		} catch {
+			setError(t(settings.locale, "loadFailed"));
+			setScreen("source");
+		} finally {
+			setBusy(false);
+		}
+	}, [onLoaded, settings]);
 	const columns = settings.columns;
 	const index = (0, import_react.useMemo)(() => catalog && columns ? buildIndex(catalog.rows, columns) : null, [catalog, columns]);
 	const locale = settings.locale;
@@ -1189,7 +1222,9 @@ function LotKeepApp() {
 				settings,
 				hasCatalog: Boolean(catalog && columns),
 				screen,
-				onToggle: () => setScreen(screen === "lookup" ? "source" : "lookup")
+				busy,
+				onToggle: () => setScreen(screen === "lookup" ? "source" : "lookup"),
+				onRefresh: settings.source?.kind === "sheets" ? onRefreshSheet : void 0
 			}), screen === "source" || !catalog || !columns || !index ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(SourceView, {
 				settings,
 				catalog,
@@ -1228,8 +1263,10 @@ function LotKeepApp() {
 		})
 	});
 }
-function Header({ settings, hasCatalog, screen, onToggle }) {
+function Header({ settings, hasCatalog, screen, busy, onToggle, onRefresh }) {
 	const tr = (key) => t(settings.locale, key);
+	const title = tr("appName");
+	const subtitle = catalogSubtitle(settings);
 	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("header", {
 		className: "mb-6 flex items-center justify-between gap-3",
 		children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
@@ -1241,19 +1278,30 @@ function Header({ settings, hasCatalog, screen, onToggle }) {
 				className: "min-w-0",
 				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
 					className: "truncate text-sm font-medium tracking-tight text-foreground",
-					title: chromeTitle(settings),
-					children: chromeTitle(settings)
+					title,
+					children: title
 				}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
-					className: "text-xs text-subtle",
-					children: tr("tagline")
+					className: "truncate text-xs text-subtle",
+					title: subtitle,
+					children: subtitle
 				})]
 			})]
-		}), hasCatalog ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
-			variant: "secondary",
-			size: "icon",
-			onClick: onToggle,
-			"aria-label": screen === "lookup" ? tr("settings") : tr("back"),
-			children: screen === "lookup" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Settings2, {}) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ArrowLeft, {})
+		}), hasCatalog ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+			className: "flex shrink-0 items-center gap-1",
+			children: [onRefresh && screen === "lookup" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
+				variant: "secondary",
+				size: "icon",
+				onClick: onRefresh,
+				disabled: busy,
+				"aria-label": tr("refresh"),
+				children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(RefreshCw, { className: busy ? "animate-spin" : void 0 })
+			}) : null, /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
+				variant: "secondary",
+				size: "icon",
+				onClick: onToggle,
+				"aria-label": screen === "lookup" ? tr("settings") : tr("back"),
+				children: screen === "lookup" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Settings2, {}) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ArrowLeft, {})
+			})]
 		}) : null]
 	});
 }
@@ -1385,10 +1433,7 @@ function LookupView({ catalog, settings, index, tr, onOpenSource }) {
 				}) : showMiss ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MissCard, {
 					query,
 					tr
-				}) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
-					className: "px-1 text-sm text-subtle",
-					children: tr("idleHint")
-				})
+				}) : null
 			}),
 			/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
 				className: "mt-auto flex items-center justify-between gap-3 pt-8 text-xs text-subtle",
@@ -1869,20 +1914,32 @@ function SourceView({ settings, catalog, busy, error, tr, setBusy, setError, set
 						children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
 							className: "mb-2 px-1 text-xs font-medium text-muted",
 							children: tr("detailsOption")
-						}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
-							type: "button",
-							role: "switch",
-							"aria-checked": settings.showDetails,
-							onClick: () => onShowDetails(!settings.showDetails),
-							className: cn("inline-flex h-11 items-center rounded-lg px-3 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out", settings.showDetails ? "bg-primary text-primary-foreground" : "text-muted shadow-[var(--shadow-border)] hover:text-foreground"),
-							children: settings.showDetails ? tr("showDetails") : tr("detailsOption")
+						}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+							className: "flex flex-wrap gap-1",
+							role: "radiogroup",
+							"aria-label": tr("detailsOption"),
+							children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
+								type: "button",
+								role: "radio",
+								"aria-checked": settings.showDetails,
+								onClick: () => onShowDetails(true),
+								className: cn("h-11 min-w-11 rounded-lg px-3 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out", settings.showDetails ? "bg-primary text-primary-foreground" : "text-muted shadow-[var(--shadow-border)] hover:text-foreground"),
+								children: tr("detailsShow")
+							}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
+								type: "button",
+								role: "radio",
+								"aria-checked": !settings.showDetails,
+								onClick: () => onShowDetails(false),
+								className: cn("h-11 min-w-11 rounded-lg px-3 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out", !settings.showDetails ? "bg-primary text-primary-foreground" : "text-muted shadow-[var(--shadow-border)] hover:text-foreground"),
+								children: tr("detailsHide")
+							})]
 						})]
 					})
 				]
 			}),
 			/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
 				className: "px-1 pt-2 text-center text-xs tracking-wide text-subtle",
-				children: tr("appVersion")
+				children: `${tr("appName")} ${tr("appVersion")}`
 			}),
 			/* @__PURE__ */ (0, import_jsx_runtime.jsx)(ConfirmDialog, {
 				open: confirmKind !== null,

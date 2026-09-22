@@ -53,8 +53,13 @@ function applyChrome(locale: Locale, theme: Theme) {
   meta?.setAttribute("content", theme === "dark" ? "#0c0d0f" : "#ffffff");
 }
 
-function chromeTitle(settings: Settings): string {
-  return settings.catalogTitle || t(settings.locale, "appName");
+function catalogSubtitle(settings: Settings): string {
+  const tr = (key: MessageKey) => t(settings.locale, key);
+  if (settings.source?.kind === "file") return settings.source.fileName;
+  if (settings.source?.kind === "sheets") {
+    return settings.catalogTitle || settings.source.title || tr("googleSheet");
+  }
+  return tr("tagline");
 }
 
 async function copyText(value: string): Promise<boolean> {
@@ -180,6 +185,32 @@ export function LotKeepApp() {
     setError(null);
   }, [persist, settings]);
 
+  const onRefreshSheet = useCallback(async () => {
+    if (settings.source?.kind !== "sheets") return;
+    setBusy(true);
+    setError(null);
+    try {
+      const loaded = await loadGoogleSheet(settings.source.url);
+      const mapping = reuseColumns(settings.columns, loaded.headers);
+      onLoaded(
+        { headers: loaded.headers, rows: loaded.rows },
+        {
+          kind: "sheets",
+          url: settings.source.url,
+          id: loaded.ref.id,
+          gid: loaded.ref.gid,
+          title: loaded.title || settings.source.title,
+        },
+        mapping,
+      );
+    } catch {
+      setError(t(settings.locale, "loadFailed"));
+      setScreen("source");
+    } finally {
+      setBusy(false);
+    }
+  }, [onLoaded, settings]);
+
   const columns = settings.columns;
   const index = useMemo(
     () => (catalog && columns ? buildIndex(catalog.rows, columns) : null),
@@ -195,7 +226,9 @@ export function LotKeepApp() {
           settings={settings}
           hasCatalog={Boolean(catalog && columns)}
           screen={screen}
+          busy={busy}
           onToggle={() => setScreen(screen === "lookup" ? "source" : "lookup")}
+          onRefresh={settings.source?.kind === "sheets" ? onRefreshSheet : undefined}
         />
         {screen === "source" || !catalog || !columns || !index ? (
           <SourceView
@@ -233,14 +266,20 @@ function Header({
   settings,
   hasCatalog,
   screen,
+  busy,
   onToggle,
+  onRefresh,
 }: {
   settings: Settings;
   hasCatalog: boolean;
   screen: Screen;
+  busy: boolean;
   onToggle: () => void;
+  onRefresh?: () => void;
 }) {
   const tr = (key: MessageKey) => t(settings.locale, key);
+  const title = tr("appName");
+  const subtitle = catalogSubtitle(settings);
   return (
     <header className="mb-6 flex items-center justify-between gap-3">
       <div className="flex min-w-0 items-center gap-3">
@@ -248,21 +287,36 @@ function Header({
           <LotMark />
         </span>
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium tracking-tight text-foreground" title={chromeTitle(settings)}>
-            {chromeTitle(settings)}
+          <p className="truncate text-sm font-medium tracking-tight text-foreground" title={title}>
+            {title}
           </p>
-          <p className="text-xs text-subtle">{tr("tagline")}</p>
+          <p className="truncate text-xs text-subtle" title={subtitle}>
+            {subtitle}
+          </p>
         </div>
       </div>
       {hasCatalog ? (
-        <Button
-          variant="secondary"
-          size="icon"
-          onClick={onToggle}
-          aria-label={screen === "lookup" ? tr("settings") : tr("back")}
-        >
-          {screen === "lookup" ? <Settings2 /> : <ArrowLeft />}
-        </Button>
+        <div className="flex shrink-0 items-center gap-1">
+          {onRefresh && screen === "lookup" ? (
+            <Button
+              variant="secondary"
+              size="icon"
+              onClick={onRefresh}
+              disabled={busy}
+              aria-label={tr("refresh")}
+            >
+              <RefreshCw className={busy ? "animate-spin" : undefined} />
+            </Button>
+          ) : null}
+          <Button
+            variant="secondary"
+            size="icon"
+            onClick={onToggle}
+            aria-label={screen === "lookup" ? tr("settings") : tr("back")}
+          >
+            {screen === "lookup" ? <Settings2 /> : <ArrowLeft />}
+          </Button>
+        </div>
       ) : null}
     </header>
   );
@@ -402,9 +456,7 @@ function LookupView({
           </div>
         ) : showMiss ? (
           <MissCard query={query} tr={tr} />
-        ) : (
-          <p className="px-1 text-sm text-subtle">{tr("idleHint")}</p>
-        )}
+        ) : null}
       </div>
 
       <div className="mt-auto flex items-center justify-between gap-3 pt-8 text-xs text-subtle">
@@ -870,24 +922,42 @@ function SourceView({
         </div>
         <div className="mt-4">
           <p className="mb-2 px-1 text-xs font-medium text-muted">{tr("detailsOption")}</p>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={settings.showDetails}
-            onClick={() => onShowDetails(!settings.showDetails)}
-            className={cn(
-              "inline-flex h-11 items-center rounded-lg px-3 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out",
-              settings.showDetails
-                ? "bg-primary text-primary-foreground"
-                : "text-muted shadow-[var(--shadow-border)] hover:text-foreground",
-            )}
-          >
-            {settings.showDetails ? tr("showDetails") : tr("detailsOption")}
-          </button>
+          <div className="flex flex-wrap gap-1" role="radiogroup" aria-label={tr("detailsOption")}>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={settings.showDetails}
+              onClick={() => onShowDetails(true)}
+              className={cn(
+                "h-11 min-w-11 rounded-lg px-3 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out",
+                settings.showDetails
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted shadow-[var(--shadow-border)] hover:text-foreground",
+              )}
+            >
+              {tr("detailsShow")}
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={!settings.showDetails}
+              onClick={() => onShowDetails(false)}
+              className={cn(
+                "h-11 min-w-11 rounded-lg px-3 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out",
+                !settings.showDetails
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted shadow-[var(--shadow-border)] hover:text-foreground",
+              )}
+            >
+              {tr("detailsHide")}
+            </button>
+          </div>
         </div>
       </section>
 
-      <p className="px-1 pt-2 text-center text-xs tracking-wide text-subtle">{tr("appVersion")}</p>
+      <p className="px-1 pt-2 text-center text-xs tracking-wide text-subtle">
+        {`${tr("appName")} ${tr("appVersion")}`}
+      </p>
 
       <ConfirmDialog
         open={confirmKind !== null}
