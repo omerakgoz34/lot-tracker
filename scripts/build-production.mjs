@@ -9,7 +9,10 @@ const outDir = join(root, "public");
 
 await cleanProductionFiles(outDir);
 await build({ configFile: join(root, "vite.portable.ts") });
-await build({ configFile: join(root, "vite.portable-xlsx.ts") });
+
+const miniXlsx = join(root, "node_modules", "xlsx", "dist", "xlsx.mini.min.js");
+const xlsxName = await hashedName("xlsx", miniXlsx);
+await writeFile(join(outDir, xlsxName), await readFile(miniXlsx));
 
 async function hashedName(prefix, filePath) {
   const bytes = await readFile(filePath);
@@ -24,7 +27,6 @@ function pick(files, pattern) {
 let files = (await readdir(outDir)).filter((name) => !name.startsWith(".") && name !== "__grok");
 let scriptName = pick(files, /^scripts-.+\.js$/);
 let styleName = pick(files, /^styles-.+\.css$/);
-let xlsxName = pick(files, /^xlsx-.+\.js$/);
 
 if (!scriptName) {
   const js = files.find((name) => name.endsWith(".js") && !name.startsWith("xlsx-"));
@@ -40,13 +42,15 @@ if (!styleName) {
   await writeFile(join(outDir, styleName), await readFile(join(outDir, css)));
   if (css !== styleName) await rm(join(outDir, css), { force: true });
 }
-if (!xlsxName) {
-  const js = files.find((name) => name.startsWith("xlsx-") && name.endsWith(".js"));
-  if (!js) throw new Error("production build produced no xlsx chunk");
-  xlsxName = js;
-}
 
 styleName = await extractCssFonts(join(outDir, styleName), outDir);
+
+const fonts = (await readdir(outDir))
+  .filter((name) => name.endsWith(".woff2"))
+  .sort();
+const fontPreload = fonts
+  .map((name) => `    <link rel="preload" href="./${name}" as="font" type="font/woff2" crossorigin />`)
+  .join("\n");
 
 const favicon = await readFile(join(outDir, "favicon.svg"));
 const iconName = `icon-${createHash("sha256").update(favicon).digest("hex").slice(0, 16)}.svg`;
@@ -63,21 +67,36 @@ const html = `<!doctype html>
     <title>DEPO LOT TAKIP</title>
     <link rel="icon" type="image/svg+xml" href="./${iconName}" />
     <style>
-      html,body{background:#fff;color:#141414;margin:0}
-      html.dark,html.dark body{background:#0c0d0f;color:#f3f1ec}
+      html,body,#root{background:#fff;color:#141414;margin:0;min-height:100dvh}
+      html.dark,html.dark body,html.dark #root{background:#0c0d0f;color:#f3f1ec}
     </style>
-    <link rel="preload" href="./${styleName}" as="style" />
+${fontPreload}
+    <link rel="stylesheet" href="./${styleName}" />
     <link rel="preload" href="./${scriptName}" as="script" />
-    <link rel="stylesheet" href="./${styleName}" media="print" onload="this.onload=null;this.media='all'" />
-    <noscript><link rel="stylesheet" href="./${styleName}" /></noscript>
   </head>
   <body class="min-h-dvh bg-background text-foreground">
     <div id="root">
+      <div class="flex min-h-dvh flex-col px-4 pb-8 pt-4 sm:px-6">
+        <div class="mx-auto flex w-full max-w-xl flex-1 flex-col">
+          <header class="mb-6 flex items-center justify-between gap-3">
+            <div class="flex min-w-0 items-center gap-3">
+              <span class="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-card-2 shadow-[var(--shadow-border)]" aria-hidden="true">
+                <svg viewBox="0 0 24 24" class="size-full"><rect x="1" y="0.75" width="22" height="22.5" rx="2.6" fill="currentColor" class="text-paper"/><rect x="1" y="0.75" width="22" height="22.5" rx="2.6" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="12" cy="6.6" r="2.05" fill="currentColor" class="text-hole"/><rect x="5" y="11.4" width="14" height="2.3" rx="0.7" fill="currentColor" class="text-accent-deep"/><rect x="5" y="16.4" width="9.5" height="2.3" rx="0.7" fill="currentColor" class="text-ink"/></svg>
+              </span>
+              <div class="min-w-0">
+                <p class="truncate text-sm font-medium tracking-tight text-foreground">DEPO LOT TAKİP</p>
+                <p class="truncate text-xs text-subtle">Artikel → LOT</p>
+              </div>
+            </div>
+          </header>
+          <div>
+            <h1 class="text-xl font-medium tracking-tight text-foreground">Katalog yükle</h1>
+            <p class="mt-2 max-w-md text-sm leading-normal text-muted">Google Sheets bağlantısını yapıştırın veya bir Excel dosyası bırakın. Katalog yüklendikten sonra aramalar bu cihazda, çevrimdışı da çalışır.</p>
+          </div>
+        </div>
+      </div>
       <noscript>
-        <main style="font-family:Segoe UI,sans-serif;max-width:36rem;margin:2rem auto;padding:0 1rem;color:#141414">
-          <h1>DEPO LOT TAKIP</h1>
-          <p>Bu dosya JavaScript ile calisir. Tarayicida JavaScript acik olmali.</p>
-        </main>
+        <p class="mx-auto max-w-xl px-4 text-sm">Bu dosya JavaScript ile çalışır. Tarayıcıda JavaScript açık olmalı.</p>
       </noscript>
     </div>
     <script>
@@ -118,9 +137,9 @@ async function fontNameIndex() {
 
 async function extractCssFonts(cssPath, dir) {
   let css = await readFile(cssPath, "utf8");
-  css = css.replace(/font-display:\s*auto/gi, "font-display:swap");
+  css = css.replace(/font-display:\s*(auto|swap|block|fallback)/gi, "font-display:optional");
   css = css.replace(/@font-face\s*\{/g, (block) =>
-    /font-display:/.test(block) ? block : "@font-face{font-display:swap;",
+    /font-display:/.test(block) ? block : "@font-face{font-display:optional;",
   );
   const names = await fontNameIndex();
   const re =
