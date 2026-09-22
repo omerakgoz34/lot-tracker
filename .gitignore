@@ -1,0 +1,10 @@
+node_modules/
+.node_modules.lock
+.pnpm-store/
+.vercel/
+dist/
+dist-portable/
+artifacts/
+.grok/
+*.log
+.DS_Store
