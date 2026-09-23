@@ -1,3 +1,5 @@
+export const APP_VERSION = "v1.7.1";
+
 export type Locale = "tr" | "en" | "de";
 export type Theme = "light" | "dark" | "system";
 
@@ -60,7 +62,6 @@ const dict = {
     matchedAlt: "Alternatif lot",
     matchedLot: "LOT",
     matchedName: "Ürün adı",
-    appVersion: "v7.0",
     detailsShow: "Göster",
     detailsHide: "Gizle",
     noLot: "Eşleşme yok",
@@ -131,7 +132,6 @@ const dict = {
     matchedAlt: "Alternative lot",
     matchedLot: "LOT",
     matchedName: "Product name",
-    appVersion: "v7.0",
     detailsShow: "Show",
     detailsHide: "Hide",
     noLot: "No match",
@@ -202,7 +202,6 @@ const dict = {
     matchedAlt: "Alternativ-LOT",
     matchedLot: "LOT",
     matchedName: "Produktname",
-    appVersion: "v7.0",
     detailsShow: "Anzeigen",
     detailsHide: "Ausblenden",
     noLot: "Kein Treffer",

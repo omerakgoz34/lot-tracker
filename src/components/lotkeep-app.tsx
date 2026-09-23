@@ -36,6 +36,7 @@ import {
   localeTag,
   resolveTheme,
   t,
+  APP_VERSION,
   type Locale,
   type MessageKey,
   type Theme,
@@ -542,19 +543,19 @@ function LotTag({
     <article className="lot-tag">
       <span className="lot-tag-hole" aria-hidden="true" />
       <p className="text-xs font-medium uppercase tracking-[0.18em] text-ink-muted">{tr("lot")}</p>
-      <div className="mt-3 flex items-center justify-center gap-2">
-        <p className="min-w-0 break-all font-mono text-lot font-medium leading-none tracking-tight text-ink">
+      <div className="relative mt-3">
+        <p className="break-all px-12 text-center font-mono text-lot font-medium leading-none tracking-tight text-ink">
           {hit.lot || "—"}
         </p>
         <button
-            type="button"
-            className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-ink-muted"
-            onClick={() => void copyLot()}
-            title={copied ? tr("copied") : tr("copy")}
-            aria-label={`${tr("lot")} ${hit.lot}. ${tr("copy")}`}
-          >
-            {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-          </button>
+          type="button"
+          className="absolute top-1/2 right-0 inline-flex size-11 -translate-y-1/2 items-center justify-center rounded-lg text-ink-muted"
+          onClick={() => void copyLot()}
+          title={copied ? tr("copied") : tr("copy")}
+          aria-label={`${tr("lot")} ${hit.lot}. ${tr("copy")}`}
+        >
+          {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+        </button>
       </div>
       {hit.article ? (
         <p className="mt-3 break-all font-mono text-sm text-ink">{hit.article}</p>
@@ -851,13 +852,20 @@ function SourceView({
               }
             />
           </div>
-          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-            <Button className="flex-1" onClick={onDone} tooltip={tr("lookUp")}>
+          <div
+            className={cn(
+              "mt-4 grid gap-2",
+              settings.source?.kind === "sheets" ? "sm:grid-cols-2" : "grid-cols-1",
+            )}
+          >
+            <Button size="lg" className="h-12 w-full" onClick={onDone} tooltip={tr("lookUp")}>
               {tr("lookUp")}
             </Button>
             {settings.source?.kind === "sheets" ? (
               <Button
+                size="lg"
                 variant="secondary"
+                className="h-12 w-full"
                 onClick={() =>
                   void loadSheet(
                     settings.source?.kind === "sheets" ? settings.source.url : undefined,
@@ -1002,7 +1010,7 @@ function SourceView({
       </section>
 
       <p className="px-1 pt-2 text-center text-xs tracking-wide text-subtle">
-        {`${tr("appName")} ${tr("appVersion")}`}
+        {`${tr("appName")} ${APP_VERSION}`}
       </p>
 
       <ConfirmDialog
