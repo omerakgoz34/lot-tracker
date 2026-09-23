@@ -315,7 +315,7 @@ function Header({
         </div>
       </div>
       {hasCatalog ? (
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex shrink-0 items-center gap-3">
           {onRefresh && screen === "lookup" ? (
             <Button
               variant="secondary"
