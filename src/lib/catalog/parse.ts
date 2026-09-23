@@ -307,12 +307,17 @@ function pushMap(map: Map<string, RawRow[]>, key: string, row: RawRow) {
   else map.set(key, [row]);
 }
 
+function hasArticleAndLot(row: RawRow, columns: ColumnMapping): boolean {
+  return Boolean((row[columns.article] ?? "").trim() && (row[columns.lot] ?? "").trim());
+}
+
 export function buildIndex(rows: RawRow[], columns: ColumnMapping): LookupIndex {
   const article = new Map<string, RawRow[]>();
   const alternative = new Map<string, RawRow[]>();
   const lot = new Map<string, RawRow[]>();
   const names: Array<{ key: string; row: RawRow }> = [];
   for (const row of rows) {
+    if (!hasArticleAndLot(row, columns)) continue;
     const a = normalize(row[columns.article] ?? "");
     if (a) pushMap(article, a, row);
     if (columns.alternative) {
