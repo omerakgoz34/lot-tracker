@@ -1,5 +1,4 @@
 import * as React from "react";
-import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 const variants = {
@@ -24,9 +23,9 @@ type ButtonProps = React.ComponentProps<"button"> & {
 };
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = "default", size = "default", tooltip, disabled, ...props }, ref) => {
-    const label = tooltip || props["aria-label"];
-    const button = (
+  ({ className, variant = "default", size = "default", tooltip, title, disabled, ...props }, ref) => {
+    const label = title || tooltip || (typeof props["aria-label"] === "string" ? props["aria-label"] : undefined);
+    return (
       <button
         className={cn(
           "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-[color,background-color,box-shadow,transform,opacity] duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-40 active:not-disabled:scale-[0.96] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
@@ -36,14 +35,9 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         )}
         ref={ref}
         disabled={disabled}
+        title={label}
         {...props}
       />
-    );
-    if (!label) return button;
-    return (
-      <Tooltip label={label}>
-        {disabled ? <span className="inline-flex">{button}</span> : button}
-      </Tooltip>
     );
   },
 );

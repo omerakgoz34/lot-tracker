@@ -17,7 +17,6 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
 import { parseWorkbook } from "@/lib/catalog/file";
 import { buildIndex, detectColumns, lookupExact, reuseColumns } from "@/lib/catalog/parse";
 import { loadGoogleSheet, parseSheetsUrl } from "@/lib/catalog/sheets";
@@ -240,7 +239,6 @@ export function LotKeepApp() {
   const tr = useCallback((key: MessageKey) => t(locale, key), [locale]);
 
   return (
-    <TooltipProvider>
     <div className="flex min-h-dvh flex-col px-4 pb-8 pt-4 sm:px-6">
       <div className="mx-auto flex w-full max-w-xl flex-1 flex-col">
         <Header
@@ -280,7 +278,6 @@ export function LotKeepApp() {
         )}
       </div>
     </div>
-    </TooltipProvider>
   );
 }
 
@@ -549,16 +546,15 @@ function LotTag({
         <p className="min-w-0 break-all font-mono text-lot font-medium leading-none tracking-tight text-ink">
           {hit.lot || "—"}
         </p>
-        <Tooltip label={copied ? tr("copied") : tr("copy")}>
-          <button
+        <button
             type="button"
             className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-ink-muted"
             onClick={() => void copyLot()}
+            title={copied ? tr("copied") : tr("copy")}
             aria-label={`${tr("lot")} ${hit.lot}. ${tr("copy")}`}
           >
             {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
           </button>
-        </Tooltip>
       </div>
       {hit.article ? (
         <p className="mt-3 break-all font-mono text-sm text-ink">{hit.article}</p>
