@@ -58,12 +58,12 @@ export function ConfirmDialog({
           {body}
         </p>
         <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <Button variant="secondary" className="sm:min-w-28" onClick={onCancel} tooltip={cancelLabel}>
+          <Button variant="secondary" className="w-full sm:w-auto sm:min-w-28" onClick={onCancel} tooltip={cancelLabel}>
             {cancelLabel}
           </Button>
           <Button
             variant={danger ? "danger" : "default"}
-            className="sm:min-w-28"
+            className="w-full sm:w-auto sm:min-w-28"
             onClick={onConfirm}
             tooltip={confirmLabel}
           >

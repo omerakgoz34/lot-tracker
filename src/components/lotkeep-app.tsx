@@ -303,7 +303,7 @@ function Header({
   return (
     <header className="mb-6 flex items-center justify-between gap-3">
       <div className="flex min-w-0 items-center gap-3">
-        <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-card-2 shadow-[var(--shadow-border)]">
+        <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-card-2 shadow-[var(--shadow-border)]">
           <LotMark />
         </span>
         <div className="min-w-0">
@@ -466,7 +466,7 @@ function LookupView({
           spellCheck={false}
           inputMode="search"
           placeholder={tr("articlePlaceholder")}
-          className="h-14 w-full rounded-lg bg-card-2 px-4 font-mono text-lg tracking-wide text-foreground shadow-[var(--shadow-border)] placeholder:font-sans placeholder:text-sm placeholder:tracking-normal placeholder:text-subtle focus-visible:outline-none focus-visible:shadow-[0_0_0_1px_var(--color-accent)]"
+          className="h-12 w-full rounded-lg bg-card-2 px-4 font-mono text-base tracking-wide text-foreground shadow-[var(--shadow-border)] placeholder:font-sans placeholder:text-sm placeholder:tracking-normal placeholder:text-subtle focus-visible:outline-none focus-visible:shadow-[0_0_0_1px_var(--color-accent)]"
         />
       </form>
 
@@ -491,7 +491,7 @@ function LookupView({
         <button
           type="button"
           onClick={onOpenSource}
-          className="min-h-11 text-left transition-colors duration-150 hover:text-muted"
+          className="min-h-12 text-left text-sm transition-colors duration-150 hover:text-muted"
         >
           <span className="tabular-nums text-muted">
             {catalog.rows.length.toLocaleString(localeTag(settings.locale))}
@@ -549,7 +549,7 @@ function LotTag({
         </p>
         <button
           type="button"
-          className="absolute top-1/2 right-0 inline-flex size-11 -translate-y-1/2 items-center justify-center rounded-lg text-ink-muted"
+          className="absolute top-1/2 right-0 inline-flex size-12 -translate-y-1/2 items-center justify-center rounded-lg text-ink-muted focus-visible:outline-none focus-visible:shadow-[0_0_0_1px_var(--color-accent)]"
           onClick={() => void copyLot()}
           title={copied ? tr("copied") : tr("copy")}
           aria-label={`${tr("lot")} ${hit.lot}. ${tr("copy")}`}
@@ -600,7 +600,7 @@ function LotTag({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="mx-auto mt-2 inline-flex min-h-11 items-center justify-center gap-1 text-xs font-medium text-ink-muted"
+        className="mx-auto mt-3 inline-flex h-12 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium text-ink-muted focus-visible:outline-none focus-visible:shadow-[0_0_0_1px_var(--color-accent)]"
         aria-expanded={open}
       >
         <ChevronDown className={cn("size-3.5 transition-transform duration-150", open && "rotate-180")} />
@@ -612,7 +612,7 @@ function LotTag({
 
 function MissCard({ query, tr }: { query: string; tr: (key: MessageKey) => string }) {
   return (
-    <div className="rounded-3xl bg-card px-5 py-6 shadow-[var(--shadow-border)]">
+    <div className="rounded-3xl bg-card p-4 shadow-[var(--shadow-border)]">
       <p className="text-sm font-medium text-foreground">{tr("noLot")}</p>
       <p className="mt-1 font-mono text-sm text-muted">{query.trim()}</p>
       <p className="mt-3 text-sm text-subtle">{tr("missHint")}</p>
@@ -805,7 +805,7 @@ function SourceView({
       </section>
 
       {error ? (
-        <p className="rounded-xl bg-danger/10 px-4 py-3 text-sm text-danger" role="alert">
+        <p className="rounded-3xl bg-danger/10 px-4 py-3 text-sm text-danger" role="alert">
           {error}
         </p>
       ) : null}
@@ -858,14 +858,13 @@ function SourceView({
               settings.source?.kind === "sheets" ? "sm:grid-cols-2" : "grid-cols-1",
             )}
           >
-            <Button size="lg" className="h-12 w-full" onClick={onDone} tooltip={tr("lookUp")}>
+            <Button className="w-full" onClick={onDone} tooltip={tr("lookUp")}>
               {tr("lookUp")}
             </Button>
             {settings.source?.kind === "sheets" ? (
               <Button
-                size="lg"
                 variant="secondary"
-                className="h-12 w-full"
+                className="w-full"
                 onClick={() =>
                   void loadSheet(
                     settings.source?.kind === "sheets" ? settings.source.url : undefined,
@@ -887,13 +886,14 @@ function SourceView({
               ? ` · ${settings.catalogTitle || settings.source.title || tr("googleSheet")}`
               : null}
           </p>
-          <button
-            type="button"
+          <Button
+            variant="danger"
+            className="mt-3 w-full"
             onClick={() => setConfirmKind("clear")}
-            className="mt-1 px-1 text-left text-xs text-subtle transition-colors duration-150 hover:text-danger"
+            tooltip={tr("clearCatalog")}
           >
             {tr("clearCatalog")}
-          </button>
+          </Button>
         </section>
       ) : null}
 
@@ -901,7 +901,7 @@ function SourceView({
         <h2 className="px-1 text-sm font-medium text-foreground">{tr("prefs")}</h2>
         <div className="mt-4">
           <p className="mb-2 px-1 text-xs font-medium text-muted">{tr("language")}</p>
-          <div className="flex flex-wrap gap-1" role="radiogroup" aria-label={tr("language")}>
+          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={tr("language")}>
             {LOCALES.map((locale) => {
               const active = settings.locale === locale;
               return (
@@ -912,10 +912,10 @@ function SourceView({
                   aria-checked={active}
                   onClick={() => onLocale(locale)}
                   className={cn(
-                    "h-11 min-w-11 rounded-lg px-3 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out",
+                    "inline-flex h-12 min-w-12 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out focus-visible:outline-none focus-visible:shadow-[0_0_0_1px_var(--color-accent)]",
                     active
                       ? "bg-primary text-primary-foreground"
-                      : "text-muted shadow-[var(--shadow-border)] hover:text-foreground",
+                      : "bg-card-2 text-foreground shadow-[var(--shadow-border)] hover:shadow-[var(--shadow-border-hover)]",
                   )}
                 >
                   {LOCALE_LABEL[locale]}
@@ -926,17 +926,17 @@ function SourceView({
         </div>
         <div className="mt-4">
           <p className="mb-2 px-1 text-xs font-medium text-muted">{tr("appearance")}</p>
-          <div className="flex flex-wrap gap-1" role="radiogroup" aria-label={tr("appearance")}>
+          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={tr("appearance")}>
             <button
               type="button"
               role="radio"
               aria-checked={settings.theme === "light"}
               onClick={() => onTheme("light")}
               className={cn(
-                "inline-flex h-11 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out",
+                "inline-flex h-12 items-center gap-2 rounded-lg px-4 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out focus-visible:outline-none focus-visible:shadow-[0_0_0_1px_var(--color-accent)]",
                 settings.theme === "light"
                   ? "bg-primary text-primary-foreground"
-                  : "text-muted shadow-[var(--shadow-border)] hover:text-foreground",
+                  : "bg-card-2 text-foreground shadow-[var(--shadow-border)] hover:shadow-[var(--shadow-border-hover)]",
               )}
             >
               <Sun className="size-4" />
@@ -948,10 +948,10 @@ function SourceView({
               aria-checked={settings.theme === "dark"}
               onClick={() => onTheme("dark")}
               className={cn(
-                "inline-flex h-11 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out",
+                "inline-flex h-12 items-center gap-2 rounded-lg px-4 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out focus-visible:outline-none focus-visible:shadow-[0_0_0_1px_var(--color-accent)]",
                 settings.theme === "dark"
                   ? "bg-primary text-primary-foreground"
-                  : "text-muted shadow-[var(--shadow-border)] hover:text-foreground",
+                  : "bg-card-2 text-foreground shadow-[var(--shadow-border)] hover:shadow-[var(--shadow-border-hover)]",
               )}
             >
               <Moon className="size-4" />
@@ -963,10 +963,10 @@ function SourceView({
               aria-checked={settings.theme === "system"}
               onClick={() => onTheme("system")}
               className={cn(
-                "inline-flex h-11 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out",
+                "inline-flex h-12 items-center gap-2 rounded-lg px-4 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out focus-visible:outline-none focus-visible:shadow-[0_0_0_1px_var(--color-accent)]",
                 settings.theme === "system"
                   ? "bg-primary text-primary-foreground"
-                  : "text-muted shadow-[var(--shadow-border)] hover:text-foreground",
+                  : "bg-card-2 text-foreground shadow-[var(--shadow-border)] hover:shadow-[var(--shadow-border-hover)]",
               )}
             >
               <Monitor className="size-4" />
@@ -976,17 +976,17 @@ function SourceView({
         </div>
         <div className="mt-4">
           <p className="mb-2 px-1 text-xs font-medium text-muted">{tr("detailsOption")}</p>
-          <div className="flex flex-wrap gap-1" role="radiogroup" aria-label={tr("detailsOption")}>
+          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={tr("detailsOption")}>
             <button
               type="button"
               role="radio"
               aria-checked={settings.showDetails}
               onClick={() => onShowDetails(true)}
               className={cn(
-                "h-11 min-w-11 rounded-lg px-3 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out",
+                "inline-flex h-12 min-w-12 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out focus-visible:outline-none focus-visible:shadow-[0_0_0_1px_var(--color-accent)]",
                 settings.showDetails
                   ? "bg-primary text-primary-foreground"
-                  : "text-muted shadow-[var(--shadow-border)] hover:text-foreground",
+                  : "bg-card-2 text-foreground shadow-[var(--shadow-border)] hover:shadow-[var(--shadow-border-hover)]",
               )}
             >
               {tr("detailsShow")}
@@ -997,10 +997,10 @@ function SourceView({
               aria-checked={!settings.showDetails}
               onClick={() => onShowDetails(false)}
               className={cn(
-                "h-11 min-w-11 rounded-lg px-3 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out",
+                "inline-flex h-12 min-w-12 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out focus-visible:outline-none focus-visible:shadow-[0_0_0_1px_var(--color-accent)]",
                 !settings.showDetails
                   ? "bg-primary text-primary-foreground"
-                  : "text-muted shadow-[var(--shadow-border)] hover:text-foreground",
+                  : "bg-card-2 text-foreground shadow-[var(--shadow-border)] hover:shadow-[var(--shadow-border-hover)]",
               )}
             >
               {tr("detailsHide")}
@@ -1053,14 +1053,14 @@ function FieldSelect({
 }) {
   return (
     <div>
-      <Label htmlFor={id} className="mb-1.5 block px-1">
+      <Label htmlFor={id} className="mb-2 block px-1">
         {label}
       </Label>
       <select
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-11 w-full rounded-lg bg-card-2 px-3 text-sm text-foreground shadow-[var(--shadow-border)] focus-visible:outline-none focus-visible:shadow-[0_0_0_1px_var(--color-accent)]"
+        className="h-12 w-full rounded-lg bg-card-2 px-4 text-sm text-foreground shadow-[var(--shadow-border)] focus-visible:outline-none focus-visible:shadow-[0_0_0_1px_var(--color-accent)]"
       >
         {allowNone ? <option value="">{noneLabel}</option> : null}
         {headers.map((header) => (

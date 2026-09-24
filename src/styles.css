@@ -160,8 +160,8 @@ html.dark {
     position: relative;
     background: var(--paper);
     color: var(--ink);
-    border-radius: var(--radius-xl);
-    padding: 2.25rem 1.25rem 1rem;
+    border-radius: 1.5rem;
+    padding: 2.25rem 1rem 1rem;
     box-shadow: var(--shadow-paper);
     text-align: center;
     width: 100%;
