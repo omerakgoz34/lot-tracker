@@ -23,7 +23,7 @@ type ButtonProps = React.ComponentProps<"button"> & {
 };
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = "default", size = "default", tooltip, title, disabled, ...props }, ref) => {
+  ({ className, variant = "default", size = "default", tooltip, title, disabled, type = "button", ...props }, ref) => {
     const label = title || tooltip || (typeof props["aria-label"] === "string" ? props["aria-label"] : undefined);
     return (
       <button
@@ -34,6 +34,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           className,
         )}
         ref={ref}
+        type={type}
         disabled={disabled}
         title={label}
         {...props}

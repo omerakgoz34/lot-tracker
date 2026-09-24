@@ -1,4 +1,4 @@
-import { matrixToRecords, parseCsv } from "./parse";
+import { matrixToRecords } from "./parse";
 import type { RawRow } from "./types";
 
 export type SheetsRef = { id: string; gid: string };
@@ -59,16 +59,19 @@ function gvizToRecords(data: GvizTable): { headers: string[]; rows: RawRow[] } {
     throw new Error(msg);
   }
   const table = data.table;
-  if (!table) throw new Error("The sheet has no table data.");
+  if (!table?.cols?.length) throw new Error("The sheet has no table data.");
   const labels = table.cols.map((col, i) => {
-    const label = col.label?.trim();
-    return label || colLetter(i);
+    const label = col?.label?.trim() ?? "";
+    if (!label || label.length > 200 || /[\r\n]/.test(label)) return colLetter(i);
+    return label;
   });
-  const unlabeled = table.cols.every((col) => !col.label?.trim());
+  const unlabeled = table.cols.every((col) => !col?.label?.trim());
   const matrix: string[][] = [];
   if (!unlabeled) matrix.push(labels);
   for (const row of table.rows ?? []) {
-    matrix.push(labels.map((_, i) => cellText(row.c?.[i])));
+    if (!row) continue;
+    const cells = Array.isArray(row.c) ? row.c : [];
+    matrix.push(labels.map((_, i) => cellText(cells[i])));
   }
   return matrixToRecords(matrix);
 }
@@ -80,95 +83,43 @@ function loadViaGvizJsonp(id: string, gid: string): Promise<{ headers: string[];
     let settled = false;
 
     const timeout = window.setTimeout(() => {
-      cleanup();
-      reject(new Error("Timed out loading the Google Sheet."));
+      finish(new Error("Timed out loading the Google Sheet."));
     }, 18000);
 
-    function cleanup() {
+    function finish(err?: Error, value?: { headers: string[]; rows: RawRow[] }) {
       if (settled) return;
       settled = true;
       window.clearTimeout(timeout);
-      script.remove();
-      if (prev !== undefined) (window as unknown as { google: unknown }).google = prev;
-      else delete (window as unknown as { google?: unknown }).google;
+      window.setTimeout(() => {
+        script.remove();
+        if (prev !== undefined) (window as unknown as { google: unknown }).google = prev;
+        else delete (window as unknown as { google?: unknown }).google;
+      }, 0);
+      if (err) reject(err);
+      else if (value) resolve(value);
     }
 
     (window as unknown as { google: unknown }).google = {
       visualization: {
         Query: {
           setResponse(data: GvizTable) {
-            cleanup();
             try {
-              resolve(gvizToRecords(data));
+              finish(undefined, gvizToRecords(data));
             } catch (err) {
-              reject(err);
+              finish(err instanceof Error ? err : new Error("Could not read that sheet."));
             }
           },
         },
       },
     };
 
-    script.src = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json&tq=${encodeURIComponent("select *")}&gid=${gid}`;
+    script.src = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json&headers=1&tq=${encodeURIComponent("select *")}&gid=${gid}`;
     script.async = true;
     script.onerror = () => {
-      cleanup();
-      reject(new Error("Could not reach Google Sheets from this browser."));
+      finish(new Error("Could not reach Google Sheets from this browser."));
     };
     document.head.appendChild(script);
   });
-}
-
-function usableTitle(raw: string): string {
-  const title = raw
-    .replace(/\s+[-–—]\s+Google.*$/i, "")
-    .replace(/\.(xlsx|xls|csv|ods|tsv)$/i, "")
-    .trim();
-  if (!title) return "";
-  if (/^google\s*(sheets?|e-?tablolar|spreadsheets?|docs|drive)$/i.test(title)) return "";
-  return title;
-}
-
-function loadSheetTitleJsonp(id: string): Promise<string> {
-  return new Promise((resolve) => {
-    const callback = `__depoLotTitle${Math.random().toString(36).slice(2)}`;
-    const script = document.createElement("script");
-    let settled = false;
-    const timeout = window.setTimeout(() => finish(""), 8000);
-
-    function finish(title: string) {
-      if (settled) return;
-      settled = true;
-      window.clearTimeout(timeout);
-      script.remove();
-      delete (window as unknown as Record<string, unknown>)[callback];
-      resolve(title);
-    }
-
-    (window as unknown as Record<string, unknown>)[callback] = (data: {
-      feed?: { title?: { $t?: string } };
-    }) => {
-      const raw = data?.feed?.title?.$t ?? "";
-      finish(usableTitle(raw));
-    };
-
-    script.src = `https://spreadsheets.google.com/feeds/worksheets/${id}/public/basic?alt=json-in-script&callback=${callback}`;
-    script.async = true;
-    script.onerror = () => finish("");
-    document.head.appendChild(script);
-  });
-}
-
-async function resolveSheetTitle(id: string): Promise<string> {
-  const attempts: Array<Promise<string>> = [loadSheetTitleJsonp(id)];
-  if (!import.meta.env.VITE_PORTABLE) {
-    attempts.push(
-      import("./fetch-sheet")
-        .then((mod) => mod.fetchGoogleSheetTitle({ data: { id } }))
-        .catch(() => ""),
-    );
-  }
-  const results = await Promise.all(attempts);
-  return results.map(usableTitle).find(Boolean) ?? "";
 }
 
 export async function loadGoogleSheet(url: string): Promise<{
@@ -182,21 +133,6 @@ export async function loadGoogleSheet(url: string): Promise<{
     throw new Error("Paste a Google Sheets link from the address bar.");
   }
 
-  const titlePromise = resolveSheetTitle(ref.id);
-
-  try {
-    const parsed = await loadViaGvizJsonp(ref.id, ref.gid);
-    const title = (await titlePromise) || "";
-    return { ...parsed, ref, title };
-  } catch (err) {
-    if (!import.meta.env.VITE_PORTABLE) {
-      const { fetchGoogleSheetCsv } = await import("./fetch-sheet");
-      const result = await fetchGoogleSheetCsv({ data: ref });
-      const csv = typeof result === "string" ? result : result.csv;
-      const fromCsv = typeof result === "string" ? "" : result.title;
-      const title = fromCsv || (await titlePromise) || "";
-      return { ...matrixToRecords(parseCsv(csv)), ref, title };
-    }
-    throw err;
-  }
+  const parsed = await loadViaGvizJsonp(ref.id, ref.gid);
+  return { ...parsed, ref, title: "" };
 }
