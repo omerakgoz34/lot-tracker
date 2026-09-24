@@ -1,6 +1,6 @@
 import { Component, StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
-import { LotKeepApp } from "@/components/lotkeep-app";
+import { LotTrackerApp } from "@/components/lot-tracker-app";
 import "@/styles.css";
 
 const root = document.getElementById("root");
@@ -27,7 +27,7 @@ class Boundary extends Component<{ children: ReactNode }, { error: Error | null 
 createRoot(root).render(
   <StrictMode>
     <Boundary>
-      <LotKeepApp />
+      <LotTrackerApp />
     </Boundary>
   </StrictMode>,
 );

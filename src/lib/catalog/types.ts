@@ -44,7 +44,7 @@ export type MatchHit = {
   others: { fields: { label: string; value: string }[] }[];
 };
 
-export const SETTINGS_KEY = "lotkeep.settings.v1";
+export const SETTINGS_KEY = "lot-tracker.settings.v1";
 export const DEFAULT_SETTINGS: Settings = {
   sheetUrl: "",
   source: null,

@@ -94,7 +94,7 @@ async function copyText(value: string): Promise<boolean> {
   }
 }
 
-export function LotKeepApp() {
+export function LotTrackerApp() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [screen, setScreen] = useState<Screen>("source");

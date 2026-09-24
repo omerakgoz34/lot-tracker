@@ -1,10 +1,11 @@
 import { coerceColumns, DEFAULT_SETTINGS, SETTINGS_KEY, type Catalog, type Settings, type Source } from "./types";
 
-const DB_NAME = "lotkeep";
+const DB_NAME = "lot-tracker";
 const DB_VERSION = 1;
 const STORE = "kv";
 const CATALOG_KEY = "catalog.v1";
 const LEGACY_DB_NAMES = ["lotkeep", "lotkeep-catalog", "depo-lot-takip"];
+const LEGACY_SETTINGS_KEY = "lotkeep.settings.v1";
 
 function canUseLocalStorage(): boolean {
   if (typeof window === "undefined") return false;
@@ -44,7 +45,9 @@ function parseSource(value: unknown): Source | null {
 export function loadSettings(): Settings {
   if (!canUseLocalStorage()) return { ...DEFAULT_SETTINGS };
   try {
-    const raw = window.localStorage.getItem(SETTINGS_KEY);
+    const raw =
+      window.localStorage.getItem(SETTINGS_KEY) ??
+      window.localStorage.getItem(LEGACY_SETTINGS_KEY);
     if (!raw) return { ...DEFAULT_SETTINGS };
     const parsed = JSON.parse(raw) as Partial<Settings> & { source?: unknown };
     const locale = parsed.locale === "en" || parsed.locale === "de" ? parsed.locale : "tr";
@@ -105,20 +108,53 @@ function closeDb(): void {
   currentDb = null;
 }
 
-function openDb(): Promise<IDBDatabase> {
+function openNamed(name: string): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    const req = indexedDB.open(name, DB_VERSION);
     req.onupgradeneeded = () => {
       const db = req.result;
       if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
     };
-    req.onsuccess = () => {
-      currentDb = req.result;
-      currentDb.onversionchange = () => closeDb();
-      resolve(currentDb);
-    };
+    req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error ?? new Error("IndexedDB failed"));
   });
+}
+
+function openDb(): Promise<IDBDatabase> {
+  return openNamed(DB_NAME).then((db) => {
+    currentDb = db;
+    currentDb.onversionchange = () => closeDb();
+    return currentDb;
+  });
+}
+
+function readCatalog(db: IDBDatabase): Promise<Catalog | null> {
+  return new Promise((resolve, reject) => {
+    if (!db.objectStoreNames.contains(STORE)) {
+      resolve(null);
+      return;
+    }
+    const tx = db.transaction(STORE, "readonly");
+    const req = tx.objectStore(STORE).get(CATALOG_KEY);
+    req.onsuccess = () => resolve((req.result as Catalog | undefined) ?? null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function loadLegacyCatalog(): Promise<Catalog | null> {
+  if (!canUseIndexedDb() || !indexedDB.databases) return null;
+  const names = new Set((await indexedDB.databases()).map((db) => db.name));
+  for (const name of LEGACY_DB_NAMES) {
+    if (!names.has(name)) continue;
+    const db = await openNamed(name);
+    try {
+      const catalog = await readCatalog(db);
+      if (catalog) return catalog;
+    } finally {
+      db.close();
+    }
+  }
+  return null;
 }
 
 function deleteDatabase(name: string): Promise<void> {
@@ -139,6 +175,7 @@ export async function wipeCatalogStorage(): Promise<void> {
   pruneLegacyLocalStorage();
   if (!canUseIndexedDb()) return;
   closeDb();
+  await deleteDatabase(DB_NAME);
   for (const name of LEGACY_DB_NAMES) {
     await deleteDatabase(name);
   }
@@ -148,15 +185,13 @@ export async function loadCatalog(): Promise<Catalog | null> {
   if (!canUseIndexedDb()) return null;
   try {
     const db = await openDb();
-    return await new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE, "readonly");
-      const req = tx.objectStore(STORE).get(CATALOG_KEY);
-      req.onsuccess = () => {
-        const value = req.result as Catalog | undefined;
-        resolve(value ?? null);
-      };
-      req.onerror = () => reject(req.error);
-    });
+    const current = await readCatalog(db);
+    if (current) return current;
+    closeDb();
+    const legacy = await loadLegacyCatalog();
+    if (!legacy) return null;
+    await saveCatalog(legacy);
+    return legacy;
   } catch {
     return null;
   }
