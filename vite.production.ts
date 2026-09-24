@@ -18,7 +18,7 @@ export default defineConfig({
     },
   },
   define: {
-    "import.meta.env.VITE_PORTABLE": JSON.stringify("1"),
+    "import.meta.env.VITE_PRODUCTION": JSON.stringify("1"),
     "process.env.NODE_ENV": JSON.stringify("production"),
     "process.env": JSON.stringify({ NODE_ENV: "production" }),
   },
@@ -28,7 +28,7 @@ export default defineConfig({
     assetsInlineLimit: 0,
     cssCodeSplit: false,
     lib: {
-      entry: path.resolve(import.meta.dirname, "src/portable-main.tsx"),
+      entry: path.resolve(import.meta.dirname, "src/production-main.tsx"),
       name: "DepoLotTakip",
       formats: ["iife"],
       fileName: () => "scripts-[hash].js",

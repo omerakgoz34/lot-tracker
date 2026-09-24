@@ -39,7 +39,7 @@ function injectScript(src: string): Promise<void> {
 async function loadXlsx(): Promise<XlsxModule> {
   const w = window as Window & { XLSX?: XlsxModule; __XLSX_SRC__?: string };
   if (w.XLSX) return w.XLSX;
-  if (import.meta.env.VITE_PORTABLE === "1") {
+  if (import.meta.env.VITE_PRODUCTION === "1") {
     const src = w.__XLSX_SRC__;
     if (!src) throw new Error("Could not load the spreadsheet engine.");
     await injectScript(src);

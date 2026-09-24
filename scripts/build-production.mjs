@@ -8,7 +8,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = join(root, "public");
 
 await cleanProductionFiles(outDir);
-await build({ configFile: join(root, "vite.portable.ts") });
+await build({ configFile: join(root, "vite.production.ts") });
 
 const miniXlsx = join(root, "node_modules", "xlsx", "dist", "xlsx.mini.min.js");
 const xlsxName = await hashedName("xlsx", miniXlsx);
