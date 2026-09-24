@@ -18,7 +18,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { parseWorkbook } from "@/lib/catalog/file";
-import { buildIndex, detectColumns, lookupExact, reuseColumns } from "@/lib/catalog/parse";
+import { buildIndex, detectColumns, isPreferredAlternative, lookupExact, reuseColumns } from "@/lib/catalog/parse";
 import { loadGoogleSheet, parseSheetsUrl } from "@/lib/catalog/sheets";
 import {
   clearCatalog,
@@ -110,10 +110,16 @@ export function LotKeepApp() {
         const data = await loadCatalog();
         if (cancelled) return;
         const usable = stored.source ? data : null;
-        if (usable && stored.columns && !stored.columns.name) {
+        if (usable && stored.columns) {
           const detected = detectColumns(usable.headers);
-          if (detected.name) {
+          if (!stored.columns.name && detected.name) {
             stored.columns = { ...stored.columns, name: detected.name };
+          }
+          if (!stored.columns.alternative && isPreferredAlternative(detected.alternative)) {
+            stored.columns = { ...stored.columns, alternative: detected.alternative };
+          }
+          if (stored.columns.expiry === undefined) {
+            stored.columns = { ...stored.columns, expiry: detected.expiry };
           }
         }
         if (!stored.catalogTitle && stored.source) {
@@ -518,14 +524,6 @@ function LotTag({
   const [copied, setCopied] = useState(false);
   const [open, setOpen] = useState(defaultOpen);
   const extraCount = hit.others.length;
-  const viaLabel =
-    hit.via === "alternative"
-      ? tr("matchedAlt")
-      : hit.via === "lot"
-        ? tr("matchedLot")
-        : hit.via === "name"
-          ? tr("matchedName")
-          : null;
 
   useEffect(() => {
     setOpen(defaultOpen);
@@ -561,22 +559,20 @@ function LotTag({
         <p className="mt-3 break-all font-mono text-sm text-ink">{hit.article}</p>
       ) : null}
       {hit.name ? <p className="mt-1 break-words text-sm text-ink-muted">{hit.name}</p> : null}
-      {viaLabel ? (
-        <p className="mt-2 text-xs text-ink-muted">
-          {tr("matchedOn")}: {viaLabel}
-        </p>
-      ) : null}
-      {open ? (
+      {open && (hit.fields.length > 0 || hit.others.some((row) => row.fields.length > 0)) ? (
         <div className="mt-5 border-t border-ink/10 pt-4 text-left">
-          <dl className="space-y-2 text-sm">
-            {hit.fields.map((field) => (
-              <div key={field.label} className="grid grid-cols-2 gap-3">
-                <dt className="text-ink-muted">{field.label}</dt>
-                <dd className="break-all text-right font-mono text-ink">{field.value}</dd>
-              </div>
-            ))}
-          </dl>
-          {hit.others.map((row, i) => (
+          {hit.fields.length > 0 ? (
+            <dl className="space-y-2 text-sm">
+              {hit.fields.map((field) => (
+                <div key={field.label} className="grid grid-cols-2 gap-3">
+                  <dt className="text-ink-muted">{field.label}</dt>
+                  <dd className="break-all text-right font-mono text-ink">{field.value}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : null}
+          {hit.others.map((row, i) =>
+            row.fields.length === 0 ? null : (
             <div key={i} className="mt-4 border-t border-ink/10 pt-4">
               <p className="mb-2 text-center text-xs font-medium uppercase tracking-[0.14em] text-ink-muted">
                 {tr("otherRows")} {i + 2}
@@ -590,13 +586,15 @@ function LotTag({
                 ))}
               </dl>
             </div>
-          ))}
+            ),
+          )}
         </div>
       ) : extraCount > 0 ? (
         <p className="mt-3 text-xs text-ink-muted">
           +{extraCount} {tr("otherRows").toLowerCase()}
         </p>
       ) : null}
+      {hit.fields.length > 0 || extraCount > 0 ? (
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -606,6 +604,7 @@ function LotTag({
         <ChevronDown className={cn("size-3.5 transition-transform duration-150", open && "rotate-180")} />
         {open ? tr("hideDetails") : tr("showDetails")}
       </button>
+      ) : null}
     </article>
   );
 }
@@ -850,6 +849,15 @@ function SourceView({
               onChange={(alternative) =>
                 onColumnsChange({ ...columns, alternative: alternative || null })
               }
+            />
+            <FieldSelect
+              id="col-expiry"
+              label={tr("expiryDate")}
+              value={columns.expiry ?? ""}
+              headers={headers}
+              allowNone
+              noneLabel={tr("none")}
+              onChange={(expiry) => onColumnsChange({ ...columns, expiry: expiry || null })}
             />
           </div>
           <div

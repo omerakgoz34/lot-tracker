@@ -7,6 +7,7 @@ export type ColumnMapping = {
   alternative: string | null;
   lot: string;
   name: string | null;
+  expiry?: string | null;
 };
 
 export type Source =
@@ -59,12 +60,16 @@ export function coerceColumns(raw: unknown): ColumnMapping | null {
   if (!raw || typeof raw !== "object") return null;
   const c = raw as Partial<ColumnMapping>;
   if (typeof c.article !== "string" || typeof c.lot !== "string") return null;
-  return {
+  const mapped: ColumnMapping = {
     article: c.article,
     alternative: typeof c.alternative === "string" && c.alternative ? c.alternative : null,
     lot: c.lot,
     name: typeof c.name === "string" && c.name ? c.name : null,
   };
+  if ("expiry" in c) {
+    mapped.expiry = typeof c.expiry === "string" && c.expiry ? c.expiry : null;
+  }
+  return mapped;
 }
 
 export function displayCatalogTitle(source: Source | null, fallback: string): string {

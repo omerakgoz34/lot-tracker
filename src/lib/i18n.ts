@@ -1,4 +1,4 @@
-export const APP_VERSION = "v1.8.0";
+export const APP_VERSION = "v1.8.1";
 
 export type Locale = "tr" | "en" | "de";
 export type Theme = "light" | "dark" | "system";
@@ -42,7 +42,8 @@ const dict = {
     columns: "Sütunlar",
     columnsHint: "Artikel ve alternatif artikel tam eşleşir. Ürün adında metin aranır. LOT yalnızca tam eşleşir.",
     article: "Artikel Numarası",
-    alternativeArticle: "Alternatif LOT Numarası",
+    alternativeArticle: "Alternatif Artikel",
+    expiryDate: "Son Kullanım Tarihi",
     productName: "Ürün Adı",
     lot: "LOT",
     lotNumber: "LOT Numarası",
@@ -112,7 +113,8 @@ const dict = {
     columns: "Columns",
     columnsHint: "Article and alternative article use exact match. Product names are searched as text. LOT is exact only.",
     article: "Article Number",
-    alternativeArticle: "Alternative LOT Number",
+    alternativeArticle: "Alternative Article",
+    expiryDate: "Expiry Date",
     productName: "Product Name",
     lot: "LOT",
     lotNumber: "LOT Number",
@@ -182,7 +184,8 @@ const dict = {
     columns: "Spalten",
     columnsHint: "Artikel und Alternativartikel exakt. Produktnamen als Text. LOT nur exakt.",
     article: "Artikelnummer",
-    alternativeArticle: "Alternative LOT-Nummer",
+    alternativeArticle: "Alternativer Artikel",
+    expiryDate: "Verfallsdatum",
     productName: "Produktname",
     lot: "LOT",
     lotNumber: "LOT-Nummer",

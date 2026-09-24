@@ -105,7 +105,7 @@ function foldHeader(header: string): string {
     .trim();
 }
 
-type Kind = "article" | "alternative" | "lot" | "name";
+type Kind = "article" | "alternative" | "lot" | "name" | "expiry";
 
 function scoreHeader(header: string, kind: Kind): number {
   const h = foldHeader(header);
@@ -154,6 +154,11 @@ function scoreHeader(header: string, kind: Kind): number {
     "web lot",
     "web lot nr",
     "web lot no",
+    "web artikel",
+    "web artikel nr",
+    "web artikel no",
+    "web article",
+    "web article nr",
     "equivalent",
     "old article",
     "old sku",
@@ -198,6 +203,8 @@ function scoreHeader(header: string, kind: Kind): number {
     return 0;
   }
   if (kind === "alternative") {
+    if (h.includes("alternatif artikel nr")) return 120;
+    if (h.includes("web artikel nr")) return 110;
     if (altExact.includes(h)) return 100;
     if (/\balt\b/.test(h) || h.includes("alternat") || h.includes("equiv")) return 70;
     return 0;
@@ -208,6 +215,39 @@ function scoreHeader(header: string, kind: Kind): number {
       return 70;
     return 0;
   }
+  if (kind === "expiry") {
+    const expiryExact = [
+      "skt",
+      "s k t",
+      "son kullanma",
+      "son kullanma tarihi",
+      "son kullanim tarihi",
+      "son kullanım tarihi",
+      "expiry",
+      "expiry date",
+      "expiration",
+      "expiration date",
+      "exp date",
+      "best before",
+      "use by",
+      "mhd",
+      "verfallsdatum",
+      "mindesthaltbarkeit",
+      "haltbarkeit",
+      "haltbarkeitsdatum",
+    ];
+    if (expiryExact.includes(h)) return 100;
+    if (
+      h.includes("skt") ||
+      h.includes("expir") ||
+      h.includes("verfall") ||
+      /\bmhd\b/.test(h) ||
+      h.includes("haltbar") ||
+      (h.includes("kullan") && h.includes("tarih"))
+    )
+      return 80;
+    return 0;
+  }
   if (articleExact.includes(h)) return 100;
   if (/\barticle\b/.test(h) || /\bartikel\b/.test(h) || /\bsku\b/.test(h) || h.includes("malzeme"))
     return 60;
@@ -216,21 +256,30 @@ function scoreHeader(header: string, kind: Kind): number {
   return 0;
 }
 
+export function isPreferredAlternative(header: string | null | undefined): boolean {
+  if (!header) return false;
+  const h = foldHeader(header);
+  return h.includes("alternatif artikel nr") || h.includes("web artikel nr");
+}
+
 export function detectColumns(headers: string[]): ColumnMapping {
   let article: string | null = null;
   let alternative: string | null = null;
   let lot: string | null = null;
   let name: string | null = null;
+  let expiry: string | null = null;
   let articleScore = 0;
   let altScore = 0;
   let lotScore = 0;
   let nameScore = 0;
+  let expiryScore = 0;
 
   for (const header of headers) {
     const a = scoreHeader(header, "article");
     const alt = scoreHeader(header, "alternative");
     const l = scoreHeader(header, "lot");
     const n = scoreHeader(header, "name");
+    const e = scoreHeader(header, "expiry");
     if (a > articleScore) {
       article = header;
       articleScore = a;
@@ -246,6 +295,10 @@ export function detectColumns(headers: string[]): ColumnMapping {
     if (n > nameScore) {
       name = header;
       nameScore = n;
+    }
+    if (e > expiryScore) {
+      expiry = header;
+      expiryScore = e;
     }
   }
 
@@ -267,12 +320,16 @@ export function detectColumns(headers: string[]): ColumnMapping {
       ? lot
       : (headers.find((h) => h !== fallbackArticle) ?? fallbackArticle);
   if (name === fallbackArticle || name === fallbackLot || name === alternative) name = null;
+  if (expiry === fallbackArticle || expiry === fallbackLot || expiry === alternative || expiry === name) {
+    expiry = null;
+  }
 
   return {
     article: fallbackArticle,
     alternative: alternative && alternative !== fallbackArticle && alternative !== fallbackLot ? alternative : null,
     lot: fallbackLot,
     name,
+    expiry,
   };
 }
 
@@ -285,12 +342,22 @@ export function reuseColumns(existing: ColumnMapping | null, headers: string[]):
     article: has(existing.article) ? existing.article : detected.article,
     lot: has(existing.lot) ? existing.lot : detected.lot,
     alternative:
-      existing.alternative === null
-        ? null
-        : has(existing.alternative)
-          ? existing.alternative
-          : detected.alternative,
+      !has(existing.alternative) && isPreferredAlternative(detected.alternative)
+        ? detected.alternative
+        : existing.alternative === null
+          ? null
+          : has(existing.alternative)
+            ? existing.alternative
+            : detected.alternative,
     name: existing.name === null ? null : has(existing.name) ? existing.name : detected.name,
+    expiry:
+      existing.expiry === undefined
+        ? detected.expiry
+        : existing.expiry === null
+          ? null
+          : has(existing.expiry)
+            ? existing.expiry
+            : detected.expiry,
   };
 }
 
@@ -334,12 +401,16 @@ export function buildIndex(rows: RawRow[], columns: ColumnMapping): LookupIndex 
   return { article, alternative, lot, names };
 }
 
-function fieldsFor(row: RawRow): { label: string; value: string }[] {
+function detailFields(row: RawRow, columns: ColumnMapping): { label: string; value: string }[] {
+  const keys = [columns.alternative, columns.expiry].filter((key): key is string => Boolean(key));
   const fields: { label: string; value: string }[] = [];
-  for (const [label, value] of Object.entries(row)) {
-    const trimmed = value.trim();
-    if (!trimmed) continue;
-    fields.push({ label, value: trimmed });
+  const seen = new Set<string>();
+  for (const label of keys) {
+    if (seen.has(label)) continue;
+    seen.add(label);
+    const value = (row[label] ?? "").trim();
+    if (!value) continue;
+    fields.push({ label, value });
   }
   return fields;
 }
@@ -351,7 +422,7 @@ function toHit(row: RawRow, columns: ColumnMapping, via: MatchVia): MatchHit {
     alternative: columns.alternative ? (row[columns.alternative] ?? "").trim() : "",
     name: columns.name ? (row[columns.name] ?? "").trim() : "",
     via,
-    fields: fieldsFor(row),
+    fields: detailFields(row, columns),
     others: [],
   };
 }
@@ -375,7 +446,10 @@ function groupHits(rows: RawRow[], columns: ColumnMapping, via: MatchVia): Match
   return order.map((key) => {
     const grouped = groups.get(key)!;
     const primary = toHit(grouped[0]!, columns, via);
-    primary.others = grouped.slice(1).map((row) => ({ fields: fieldsFor(row) }));
+    primary.others = grouped
+      .slice(1)
+      .map((row) => ({ fields: detailFields(row, columns) }))
+      .filter((row) => row.fields.length > 0);
     return primary;
   });
 }
