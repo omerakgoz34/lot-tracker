@@ -402,6 +402,18 @@ function LookupView({
   }, []);
 
   useEffect(() => {
+    const bump = () => setAsOf(Date.now());
+    window.addEventListener("focus", bump);
+    window.addEventListener("blur", bump);
+    document.addEventListener("visibilitychange", bump);
+    return () => {
+      window.removeEventListener("focus", bump);
+      window.removeEventListener("blur", bump);
+      document.removeEventListener("visibilitychange", bump);
+    };
+  }, []);
+
+  useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;
       const tag = (e.target as HTMLElement | null)?.tagName;
