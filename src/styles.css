@@ -77,11 +77,11 @@ html.dark {
   --subtle: #6d757c;
   --border: color-mix(in oklab, #f3f1ec 12%, transparent);
   --border-strong: color-mix(in oklab, #f3f1ec 22%, transparent);
-  --primary: #f3f1ec;
+  --primary: #c5cbcf;
   --primary-foreground: #1c1e22;
   --accent: #8aa4b0;
   --accent-deep: #3f5f6b;
-  --paper: #f3f1ec;
+  --paper: #d8d4cc;
   --ink: #1c1e22;
   --ink-muted: #4a5158;
   --danger: #c45c4a;

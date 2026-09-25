@@ -393,6 +393,7 @@ function LookupView({
 }) {
   const [query, setQuery] = useState("");
   const [committed, setCommitted] = useState("");
+  const [asOf, setAsOf] = useState(() => Date.now());
   const inputRef = useRef<HTMLInputElement>(null);
   const columns = settings.columns!;
 
@@ -447,6 +448,7 @@ function LookupView({
         onSubmit={(e) => {
           e.preventDefault();
           setCommitted(query);
+          setAsOf(Date.now());
         }}
       >
         <Label htmlFor="article-input" className="mb-2 block px-1">
@@ -457,12 +459,16 @@ function LookupView({
           id="article-input"
           name="article"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setAsOf(Date.now());
+          }}
           onPaste={() => {
             requestAnimationFrame(() => {
               const next = inputRef.current?.value ?? "";
               setQuery(next);
               setCommitted(next);
+              setAsOf(Date.now());
             });
           }}
           onFocus={(e) => e.currentTarget.select()}
@@ -504,7 +510,7 @@ function LookupView({
           </span>
           {` ${tr("products")} · `}
           {sourceLabel}
-          {settings.loadedAt ? ` · ${formatAgo(settings.loadedAt, settings.locale)}` : ""}
+          {settings.loadedAt ? ` · ${formatAgo(settings.loadedAt, settings.locale, asOf)}` : ""}
         </button>
         <span className="hidden sm:inline">{tr("pressToFocus")}</span>
       </div>
