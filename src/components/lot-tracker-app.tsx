@@ -366,15 +366,7 @@ function Header({
 function LotMark() {
   return (
     <svg viewBox="-1.4 -1.4 26.8 26.8" className="size-full" aria-hidden="true">
-      <rect
-        x="1"
-        y="0.75"
-        width="22"
-        height="22.5"
-        rx="2.6"
-        fill="currentColor"
-        className="text-paper"
-      />
+      <rect x="1" y="0.75" width="22" height="22.5" rx="2.6" fill="#ffffff" />
       <rect
         x="1"
         y="0.75"
@@ -382,13 +374,13 @@ function LotMark() {
         height="22.5"
         rx="2.6"
         fill="none"
-        stroke="currentColor"
+        stroke="#141414"
+        strokeOpacity="0.28"
         strokeWidth="1.2"
-        style={{ stroke: "color-mix(in oklab, var(--ink) 28%, transparent)" }}
       />
-      <circle cx="12" cy="6.6" r="2.05" fill="currentColor" className="text-hole" />
-      <rect x="5" y="11.4" width="14" height="2.3" rx="0.7" fill="currentColor" className="text-accent-deep" />
-      <rect x="5" y="16.4" width="9.5" height="2.3" rx="0.7" fill="currentColor" className="text-ink" />
+      <circle cx="12" cy="6.6" r="2.05" fill="#e4e4e7" />
+      <rect x="5" y="11.4" width="14" height="2.3" rx="0.7" fill="#2f4a54" />
+      <rect x="5" y="16.4" width="9.5" height="2.3" rx="0.7" fill="#141414" />
     </svg>
   );
 }

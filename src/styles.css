@@ -29,8 +29,8 @@
   --font-sans: "IBM Plex Sans", "IBM Plex Sans Fallback", "Segoe UI", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
-  --radius: 1.25rem;
-  --radius-3xl: 1.25rem;
+  --radius: 1rem;
+  --radius-3xl: 1rem;
   --text-lot: clamp(1.75rem, 1.1rem + 3.4vw, 2.75rem);
 
   --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
@@ -175,7 +175,7 @@ html.dark {
     position: relative;
     background: var(--paper);
     color: var(--ink);
-    border-radius: 1.25rem;
+    border-radius: 1rem;
     padding: 2.25rem 1rem 1rem;
     box-shadow: var(--shadow-paper);
     text-align: center;
