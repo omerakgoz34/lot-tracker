@@ -151,6 +151,21 @@ export function LotTrackerApp() {
     };
   }, []);
 
+  useEffect(() => {
+    const clearPress = (event: Event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const control = target.closest("button, [role='button'], a");
+      if (control instanceof HTMLElement) control.blur();
+    };
+    document.addEventListener("pointerup", clearPress);
+    document.addEventListener("touchend", clearPress);
+    return () => {
+      document.removeEventListener("pointerup", clearPress);
+      document.removeEventListener("touchend", clearPress);
+    };
+  }, []);
+
   const persistSettings = useCallback((next: Settings) => {
     setSettings(next);
     saveSettings(next);
@@ -490,7 +505,7 @@ function LookupView({
           spellCheck={false}
           inputMode="search"
           placeholder={tr("articlePlaceholder")}
-          className="h-12 w-full rounded-lg bg-card-2 px-4 font-mono text-base tracking-wide text-foreground shadow-[var(--shadow-border)] placeholder:font-sans placeholder:text-sm placeholder:tracking-normal placeholder:text-subtle focus-visible:outline-none focus-visible:shadow-[0_0_0_1px_var(--color-accent)]"
+          className="h-12 w-full rounded-lg bg-card-2 px-4 font-mono text-base tracking-wide text-foreground shadow-[var(--shadow-border)] placeholder:font-sans placeholder:text-sm placeholder:tracking-normal placeholder:text-subtle focus-visible:outline-none"
         />
       </form>
 
@@ -565,7 +580,7 @@ function LotTag({
         </p>
         <button
           type="button"
-          className="absolute top-1/2 right-0 inline-flex size-12 -translate-y-1/2 items-center justify-center rounded-lg text-ink-muted focus-visible:outline-none focus-visible:shadow-[0_0_0_1px_var(--color-accent)]"
+          className="absolute top-1/2 right-0 inline-flex size-12 -translate-y-1/2 items-center justify-center rounded-lg text-ink-muted focus-visible:outline-none"
           onClick={() => void copyLot()}
           title={copied ? tr("copied") : tr("copy")}
           aria-label={`${tr("lot")} ${hit.lot}. ${tr("copy")}`}
@@ -616,7 +631,7 @@ function LotTag({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="mx-auto mt-3 inline-flex h-12 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium text-ink-muted focus-visible:outline-none focus-visible:shadow-[0_0_0_1px_var(--color-accent)]"
+        className="mx-auto mt-3 inline-flex h-12 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium text-ink-muted focus-visible:outline-none"
         aria-expanded={open}
       >
         <ChevronDown className={cn("size-3.5 transition-transform duration-150", open && "rotate-180")} />
@@ -938,7 +953,7 @@ function SourceView({
                   aria-checked={active}
                   onClick={() => onLocale(locale)}
                   className={cn(
-                    "inline-flex h-12 min-w-12 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out focus-visible:outline-none focus-visible:shadow-[0_0_0_1px_var(--color-accent)]",
+                    "inline-flex h-12 min-w-12 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out focus-visible:outline-none",
                     active
                       ? "bg-primary text-primary-foreground"
                       : "bg-card-2 text-foreground shadow-[var(--shadow-border)] hover:shadow-[var(--shadow-border-hover)]",
@@ -959,7 +974,7 @@ function SourceView({
               aria-checked={settings.theme === "light"}
               onClick={() => onTheme("light")}
               className={cn(
-                "inline-flex h-12 items-center gap-2 rounded-lg px-4 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out focus-visible:outline-none focus-visible:shadow-[0_0_0_1px_var(--color-accent)]",
+                "inline-flex h-12 items-center gap-2 rounded-lg px-4 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out focus-visible:outline-none",
                 settings.theme === "light"
                   ? "bg-primary text-primary-foreground"
                   : "bg-card-2 text-foreground shadow-[var(--shadow-border)] hover:shadow-[var(--shadow-border-hover)]",
@@ -974,7 +989,7 @@ function SourceView({
               aria-checked={settings.theme === "dark"}
               onClick={() => onTheme("dark")}
               className={cn(
-                "inline-flex h-12 items-center gap-2 rounded-lg px-4 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out focus-visible:outline-none focus-visible:shadow-[0_0_0_1px_var(--color-accent)]",
+                "inline-flex h-12 items-center gap-2 rounded-lg px-4 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out focus-visible:outline-none",
                 settings.theme === "dark"
                   ? "bg-primary text-primary-foreground"
                   : "bg-card-2 text-foreground shadow-[var(--shadow-border)] hover:shadow-[var(--shadow-border-hover)]",
@@ -989,7 +1004,7 @@ function SourceView({
               aria-checked={settings.theme === "system"}
               onClick={() => onTheme("system")}
               className={cn(
-                "inline-flex h-12 items-center gap-2 rounded-lg px-4 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out focus-visible:outline-none focus-visible:shadow-[0_0_0_1px_var(--color-accent)]",
+                "inline-flex h-12 items-center gap-2 rounded-lg px-4 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out focus-visible:outline-none",
                 settings.theme === "system"
                   ? "bg-primary text-primary-foreground"
                   : "bg-card-2 text-foreground shadow-[var(--shadow-border)] hover:shadow-[var(--shadow-border-hover)]",
@@ -1009,7 +1024,7 @@ function SourceView({
               aria-checked={settings.showDetails}
               onClick={() => onShowDetails(true)}
               className={cn(
-                "inline-flex h-12 min-w-12 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out focus-visible:outline-none focus-visible:shadow-[0_0_0_1px_var(--color-accent)]",
+                "inline-flex h-12 min-w-12 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out focus-visible:outline-none",
                 settings.showDetails
                   ? "bg-primary text-primary-foreground"
                   : "bg-card-2 text-foreground shadow-[var(--shadow-border)] hover:shadow-[var(--shadow-border-hover)]",
@@ -1023,7 +1038,7 @@ function SourceView({
               aria-checked={!settings.showDetails}
               onClick={() => onShowDetails(false)}
               className={cn(
-                "inline-flex h-12 min-w-12 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out focus-visible:outline-none focus-visible:shadow-[0_0_0_1px_var(--color-accent)]",
+                "inline-flex h-12 min-w-12 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out focus-visible:outline-none",
                 !settings.showDetails
                   ? "bg-primary text-primary-foreground"
                   : "bg-card-2 text-foreground shadow-[var(--shadow-border)] hover:shadow-[var(--shadow-border-hover)]",
@@ -1086,7 +1101,7 @@ function FieldSelect({
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-12 w-full rounded-lg bg-card-2 px-4 text-sm text-foreground shadow-[var(--shadow-border)] focus-visible:outline-none focus-visible:shadow-[0_0_0_1px_var(--color-accent)]"
+        className="h-12 w-full rounded-lg bg-card-2 px-4 text-sm text-foreground shadow-[var(--shadow-border)] focus-visible:outline-none"
       >
         {allowNone ? <option value="">{noneLabel}</option> : null}
         {headers.map((header) => (
