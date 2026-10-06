@@ -324,7 +324,7 @@ function Header({
   return (
     <header className="mb-6 flex items-center justify-between gap-3">
       <div className="flex min-w-0 items-center gap-3">
-        <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-3xl bg-card-2 shadow-[var(--shadow-border)]">
+        <span className="flex size-12 shrink-0 items-center justify-center">
           <LotMark />
         </span>
         <div className="min-w-0">
@@ -365,7 +365,7 @@ function Header({
 
 function LotMark() {
   return (
-    <svg viewBox="0 0 24 24" className="size-full" aria-hidden="true">
+    <svg viewBox="-1.4 -1.4 26.8 26.8" className="size-full" aria-hidden="true">
       <rect
         x="1"
         y="0.75"

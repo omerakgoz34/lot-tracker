@@ -53,7 +53,7 @@ export const DEFAULT_SETTINGS: Settings = {
   locale: "tr",
   theme: "light",
   catalogTitle: "",
-  showDetails: false,
+  showDetails: true,
 };
 
 export function coerceColumns(raw: unknown): ColumnMapping | null {

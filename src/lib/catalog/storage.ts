@@ -49,10 +49,11 @@ export function loadSettings(): Settings {
       window.localStorage.getItem(SETTINGS_KEY) ??
       window.localStorage.getItem(LEGACY_SETTINGS_KEY);
     if (!raw) return { ...DEFAULT_SETTINGS };
-    const parsed = JSON.parse(raw) as Partial<Settings> & { source?: unknown };
+    const parsed = JSON.parse(raw) as Partial<Settings> & { source?: unknown; detailsRev?: number };
     const locale = parsed.locale === "en" || parsed.locale === "de" ? parsed.locale : "tr";
     const theme =
       parsed.theme === "dark" || parsed.theme === "system" ? parsed.theme : "light";
+    const showDetails = parsed.detailsRev === 2 ? parsed.showDetails === true : true;
     return {
       sheetUrl: typeof parsed.sheetUrl === "string" ? parsed.sheetUrl : "",
       source: parseSource(parsed.source),
@@ -61,7 +62,7 @@ export function loadSettings(): Settings {
       locale,
       theme,
       catalogTitle: typeof parsed.catalogTitle === "string" ? parsed.catalogTitle : "",
-      showDetails: parsed.showDetails === true,
+      showDetails,
     };
   } catch {
     return { ...DEFAULT_SETTINGS };
@@ -71,7 +72,7 @@ export function loadSettings(): Settings {
 export function saveSettings(settings: Settings): void {
   if (!canUseLocalStorage()) return;
   try {
-    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...settings, detailsRev: 2 }));
   } catch {
     // Safari private / blocked storage
   }
