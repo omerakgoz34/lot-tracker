@@ -3,6 +3,7 @@ import { readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "vite";
+import { appIcons } from "./app-icon.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = join(root, "public");
@@ -56,6 +57,33 @@ const favicon = await readFile(join(outDir, "favicon.svg"));
 const iconName = `icon-${createHash("sha256").update(favicon).digest("hex").slice(0, 16)}.svg`;
 await writeFile(join(outDir, iconName), favicon);
 
+const pngIcons = [];
+for (const icon of appIcons()) {
+  const fileName = `${icon.name}-${createHash("sha256").update(icon.png).digest("hex").slice(0, 16)}.png`;
+  await writeFile(join(outDir, fileName), icon.png);
+  pngIcons.push({ ...icon, fileName });
+}
+const appleIcon = pngIcons.find((icon) => icon.size === 180);
+const manifest = {
+  id: "./",
+  name: "DEPO LOT TAKİP",
+  short_name: "LOT TAKİP",
+  description: "Artikel numarasından LOT numarası bulunur.",
+  start_url: "./",
+  scope: "./",
+  display: "standalone",
+  background_color: "#ffffff",
+  theme_color: "#ffffff",
+  lang: "tr",
+  icons: pngIcons.map((icon) => ({
+    src: `./${icon.fileName}`,
+    sizes: `${icon.size}x${icon.size}`,
+    type: "image/png",
+    purpose: "any",
+  })),
+};
+await writeFile(join(outDir, "manifest.webmanifest"), `${JSON.stringify(manifest, null, 2)}\n`);
+
 const html = `<!doctype html>
 <html lang="tr">
   <head>
@@ -64,8 +92,14 @@ const html = `<!doctype html>
     <meta name="theme-color" content="#ffffff" />
     <meta name="color-scheme" content="light dark" />
     <meta name="description" content="Artikel numarasından LOT numarası bulunur." />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="LOT TAKİP" />
     <title>DEPO LOT TAKIP</title>
     <link rel="icon" type="image/svg+xml" href="./${iconName}" />
+    <link rel="apple-touch-icon" href="./${appleIcon.fileName}" />
+    <link rel="manifest" href="./manifest.webmanifest" />
     <style>
       html,body,#root{background:#fff;color:#141414;margin:0;min-height:100dvh}
       html.dark,html.dark body,html.dark #root{background:#0c0d0f;color:#f3f1ec}
@@ -115,7 +149,8 @@ await writeFile(join(outDir, ".nojekyll"), "");
 const listed = (await readdir(outDir))
   .filter((name) =>
     name === "index.html" ||
-    /^(scripts-|styles-|icon-|xlsx-)/.test(name) ||
+    /^(scripts-|styles-|icon-|xlsx-|apple-touch-icon-)/.test(name) ||
+    name === "manifest.webmanifest" ||
     /\.(woff2?|otf|ttf)$/.test(name),
   )
   .sort();
@@ -172,11 +207,13 @@ async function cleanProductionFiles(dir) {
     if (name === "__grok" || name === "favicon.svg") continue;
     const generated =
       name === "index.html" ||
+      name === "manifest.webmanifest" ||
       name === "BASLAT.bat" ||
       /^scripts-.+\.js$/.test(name) ||
       /^styles-.+\.css$/.test(name) ||
       /^xlsx-.+\.js$/.test(name) ||
-      /^icon-.+\.svg$/.test(name) ||
+      /^icon-.+\.(svg|png)$/.test(name) ||
+      /^apple-touch-icon-.+\.png$/.test(name) ||
       /^font-.+\.(woff2|woff|otf|ttf)$/.test(name) ||
       /^ibm-plex-.+\.(woff2|woff|otf|ttf)$/.test(name);
     if (generated) await rm(join(dir, name), { force: true });
