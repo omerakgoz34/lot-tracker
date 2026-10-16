@@ -67,7 +67,7 @@ const appleIcon = pngIcons.find((icon) => icon.size === 180);
 const manifest = {
   id: "./",
   name: "DEPO LOT TAKİP",
-  short_name: "LOT TAKİP",
+  short_name: "DEPO LOT TAKİP",
   description: "Artikel numarasından LOT numarası bulunur.",
   start_url: "./",
   scope: "./",
@@ -95,7 +95,7 @@ const html = `<!doctype html>
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="LOT TAKİP" />
+    <meta name="apple-mobile-web-app-title" content="DEPO LOT TAKİP" />
     <title>DEPO LOT TAKIP</title>
     <link rel="icon" type="image/svg+xml" href="./${iconName}" />
     <link rel="apple-touch-icon" href="./${appleIcon.fileName}" />
