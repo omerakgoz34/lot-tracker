@@ -526,7 +526,10 @@ function LookupView({
         >
           <span className="tabular-nums text-muted">
             {catalog.rows
-              .filter((row) => (row[columns.article] ?? "").trim())
+              .filter(
+                (row) =>
+                  (row[columns.article] ?? "").trim() && (row[columns.lot] ?? "").trim(),
+              )
               .length.toLocaleString(localeTag(settings.locale))}
           </span>
           {` ${tr("products")} · `}
