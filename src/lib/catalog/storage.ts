@@ -1,4 +1,4 @@
-import { coerceColumns, DEFAULT_SETTINGS, SETTINGS_KEY, type Catalog, type Settings, type Source } from "./types";
+import { coerceColumns, DEFAULT_SETTINGS, SETTINGS_KEY, SHEET_REFRESH_MINUTES, type Catalog, type Settings, type Source } from "./types";
 
 const DB_NAME = "lot-tracker";
 const DB_VERSION = 1;
@@ -54,6 +54,9 @@ export function loadSettings(): Settings {
     const theme =
       parsed.theme === "dark" || parsed.theme === "system" ? parsed.theme : "light";
     const showDetails = parsed.detailsRev === 2 ? parsed.showDetails === true : true;
+    const sheetRefresh = SHEET_REFRESH_MINUTES.includes(parsed.sheetRefresh as Settings["sheetRefresh"])
+      ? (parsed.sheetRefresh as Settings["sheetRefresh"])
+      : 0;
     return {
       sheetUrl: typeof parsed.sheetUrl === "string" ? parsed.sheetUrl : "",
       source: parseSource(parsed.source),
@@ -63,6 +66,7 @@ export function loadSettings(): Settings {
       theme,
       catalogTitle: typeof parsed.catalogTitle === "string" ? parsed.catalogTitle : "",
       showDetails,
+      sheetRefresh,
     };
   } catch {
     return { ...DEFAULT_SETTINGS };

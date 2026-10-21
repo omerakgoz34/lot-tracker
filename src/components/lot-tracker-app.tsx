@@ -28,7 +28,7 @@ import {
   saveSettings,
 } from "@/lib/catalog/storage";
 import type { Catalog, ColumnMapping, MatchHit, Settings, Source } from "@/lib/catalog/types";
-import { DEFAULT_SETTINGS } from "@/lib/catalog/types";
+import { DEFAULT_SETTINGS, SHEET_REFRESH_MINUTES } from "@/lib/catalog/types";
 import {
   formatAgo,
   LOCALE_LABEL,
@@ -226,31 +226,106 @@ export function LotTrackerApp() {
     setError(null);
   }, [persist, settings]);
 
-  const onRefreshSheet = useCallback(async () => {
-    if (settings.source?.kind !== "sheets") return;
-    setBusy(true);
-    setError(null);
-    try {
-      const loaded = await loadGoogleSheet(settings.source.url);
-      const mapping = reuseColumns(settings.columns, loaded.headers);
-      onLoaded(
-        { headers: loaded.headers, rows: loaded.rows },
-        {
-          kind: "sheets",
-          url: settings.source.url,
-          id: loaded.ref.id,
-          gid: loaded.ref.gid,
-          title: loaded.title || settings.source.title,
-        },
-        mapping,
-      );
-    } catch {
-      setError(t(settings.locale, "loadFailed"));
-      setScreen("source");
-    } finally {
-      setBusy(false);
-    }
-  }, [onLoaded, settings]);
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+  const busyRef = useRef(false);
+
+  const refreshSheet = useCallback(
+    async (mode: "manual" | "auto") => {
+      const current = settingsRef.current;
+      if (current.source?.kind !== "sheets") return;
+      if (busyRef.current) return;
+      busyRef.current = true;
+      setBusy(true);
+      if (mode === "manual") setError(null);
+      try {
+        const loaded = await loadGoogleSheet(current.source.url);
+        const latest = settingsRef.current;
+        if (latest.source?.kind !== "sheets" || latest.source.url !== current.source.url) return;
+        const mapping = reuseColumns(latest.columns, loaded.headers);
+        persist(
+          {
+            ...latest,
+            source: {
+              kind: "sheets",
+              url: latest.source.url,
+              id: loaded.ref.id,
+              gid: loaded.ref.gid,
+              title: loaded.title || latest.source.title,
+            },
+            columns: mapping,
+            loadedAt: Date.now(),
+            sheetUrl: latest.source.url,
+            catalogTitle: loaded.title || latest.catalogTitle || t(latest.locale, "googleSheet"),
+          },
+          { headers: loaded.headers, rows: loaded.rows },
+        );
+        if (mode === "manual") {
+          setError(null);
+          setScreen("lookup");
+        }
+      } catch {
+        if (mode === "manual") {
+          setError(t(settingsRef.current.locale, "loadFailed"));
+          setScreen("source");
+        }
+      } finally {
+        busyRef.current = false;
+        setBusy(false);
+      }
+    },
+    [persist],
+  );
+
+  useEffect(() => {
+    const minutes = settings.sheetRefresh;
+    const url = settings.source?.kind === "sheets" ? settings.source.url : "";
+    if (!minutes || !url) return;
+    const ms = minutes * 60_000;
+    let running = true;
+    let timer = 0;
+
+    const arm = (wait: number) => {
+      timer = window.setTimeout(() => {
+        void run();
+      }, wait);
+    };
+
+    const run = async () => {
+      if (!running || document.visibilityState === "hidden") {
+        if (running) arm(ms);
+        return;
+      }
+      const before = settingsRef.current.loadedAt;
+      await refreshSheet("auto");
+      if (!running) return;
+      const after = settingsRef.current.loadedAt;
+      arm(after && after !== before ? Math.max(1_000, after + ms - Date.now()) : ms);
+    };
+
+    const wait = Math.max(0, (settingsRef.current.loadedAt ?? 0) + ms - Date.now());
+    arm(wait);
+
+    const onVisible = () => {
+      if (!running || document.visibilityState === "hidden") return;
+      const loadedAt = settingsRef.current.loadedAt ?? 0;
+      if (Date.now() - loadedAt < ms) return;
+      window.clearTimeout(timer);
+      void run();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      running = false;
+      window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, [refreshSheet, settings.sheetRefresh, settings.source]);
+
+  const onRefreshSheet = useCallback(() => {
+    void refreshSheet("manual");
+  }, [refreshSheet]);
 
   const columns = settings.columns;
   const index = useMemo(
@@ -288,6 +363,7 @@ export function LotTrackerApp() {
             onLocale={(next) => persistSettings({ ...settings, locale: next })}
             onTheme={(next) => persistSettings({ ...settings, theme: next })}
             onShowDetails={(showDetails) => persistSettings({ ...settings, showDetails })}
+            onSheetRefresh={(sheetRefresh) => persistSettings({ ...settings, sheetRefresh })}
           />
         ) : (
           <LookupView
@@ -665,6 +741,7 @@ function SourceView({
   onLocale,
   onTheme,
   onShowDetails,
+  onSheetRefresh,
 }: {
   settings: Settings;
   catalog: Catalog | null;
@@ -681,6 +758,7 @@ function SourceView({
   onLocale: (locale: Locale) => void;
   onTheme: (theme: Theme) => void;
   onShowDetails: (value: boolean) => void;
+  onSheetRefresh: (minutes: Settings["sheetRefresh"]) => void;
 }) {
   const [dragging, setDragging] = useState(false);
   const [confirmKind, setConfirmKind] = useState<null | "clear" | "replace">(null);
@@ -1045,6 +1123,43 @@ function SourceView({
             </button>
           </div>
         </div>
+        {settings.source?.kind === "sheets" ? (
+          <div className="mt-4">
+            <p className="mb-2 px-1 text-xs font-medium text-muted">{tr("autoRefresh")}</p>
+            <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={tr("autoRefresh")}>
+              {SHEET_REFRESH_MINUTES.map((minutes) => {
+                const active = settings.sheetRefresh === minutes;
+                const label =
+                  minutes === 0
+                    ? tr("autoOff")
+                    : minutes === 5
+                      ? tr("auto5")
+                      : minutes === 10
+                        ? tr("auto10")
+                        : minutes === 15
+                          ? tr("auto15")
+                          : tr("auto30");
+                return (
+                  <button
+                    key={minutes}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => onSheetRefresh(minutes)}
+                    className={cn(
+                      "inline-flex h-12 min-w-12 items-center justify-center rounded-3xl px-4 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out focus-visible:outline-none",
+                      active
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-card-2 text-foreground shadow-[var(--shadow-border)] hover:shadow-[var(--shadow-border-hover)]",
+                    )}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
       </section>
 
       <p className="px-1 pt-2 text-center text-xs tracking-wide text-subtle">

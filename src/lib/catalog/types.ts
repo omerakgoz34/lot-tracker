@@ -23,6 +23,7 @@ export type Settings = {
   theme: Theme;
   catalogTitle: string;
   showDetails: boolean;
+  sheetRefresh: SheetRefreshMinutes;
 };
 
 export type Catalog = {
@@ -31,6 +32,10 @@ export type Catalog = {
   sheetNames?: string[];
   activeSheet?: string;
 };
+
+export type SheetRefreshMinutes = 0 | 5 | 10 | 15 | 30;
+
+export const SHEET_REFRESH_MINUTES: SheetRefreshMinutes[] = [0, 5, 10, 15, 30];
 
 export type MatchVia = "article" | "alternative" | "lot" | "name";
 
@@ -54,6 +59,7 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: "light",
   catalogTitle: "",
   showDetails: true,
+  sheetRefresh: 0,
 };
 
 export function coerceColumns(raw: unknown): ColumnMapping | null {
