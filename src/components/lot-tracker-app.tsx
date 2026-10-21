@@ -525,7 +525,9 @@ function LookupView({
           className="min-h-12 text-left text-sm transition-colors duration-150 hover:text-muted"
         >
           <span className="tabular-nums text-muted">
-            {catalog.rows.length.toLocaleString(localeTag(settings.locale))}
+            {catalog.rows
+              .filter((row) => (row[columns.article] ?? "").trim())
+              .length.toLocaleString(localeTag(settings.locale))}
           </span>
           {` ${tr("products")} · `}
           {sourceLabel}
