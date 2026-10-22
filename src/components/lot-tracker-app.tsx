@@ -1126,7 +1126,7 @@ function SourceView({
         {settings.source?.kind === "sheets" ? (
           <div className="mt-4">
             <p className="mb-2 px-1 text-xs font-medium text-muted">{tr("autoRefresh")}</p>
-            <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={tr("autoRefresh")}>
+            <div className="grid grid-cols-5 gap-2" role="radiogroup" aria-label={tr("autoRefresh")}>
               {SHEET_REFRESH_MINUTES.map((minutes) => {
                 const active = settings.sheetRefresh === minutes;
                 const label =
@@ -1147,7 +1147,7 @@ function SourceView({
                     aria-checked={active}
                     onClick={() => onSheetRefresh(minutes)}
                     className={cn(
-                      "inline-flex h-12 min-w-12 items-center justify-center rounded-3xl px-4 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out focus-visible:outline-none",
+                      "inline-flex h-12 items-center justify-center whitespace-nowrap rounded-3xl px-1 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 ease-out focus-visible:outline-none",
                       active
                         ? "bg-primary text-primary-foreground"
                         : "bg-card-2 text-foreground shadow-[var(--shadow-border)] hover:shadow-[var(--shadow-border-hover)]",
