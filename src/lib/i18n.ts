@@ -1,4 +1,4 @@
-export const APP_VERSION = "v1.9.1";
+export const APP_VERSION = "v1.10.0";
 
 export type Locale = "tr" | "en" | "de";
 export type Theme = "light" | "dark" | "system";
