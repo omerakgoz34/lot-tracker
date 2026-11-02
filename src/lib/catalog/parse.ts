@@ -432,6 +432,7 @@ function rowKey(row: RawRow): string {
 }
 
 function groupHits(rows: RawRow[], columns: ColumnMapping, via: MatchVia): MatchHit[] {
+  if (via === "lot") return rows.map((row) => toHit(row, columns, via));
   const groups = new Map<string, RawRow[]>();
   const order: string[] = [];
   for (const row of rows) {
