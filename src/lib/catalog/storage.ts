@@ -216,7 +216,6 @@ export async function saveCatalog(catalog: Catalog): Promise<void> {
 }
 
 export async function replaceCatalog(catalog: Catalog): Promise<void> {
-  await wipeCatalogStorage();
   await saveCatalog(catalog);
 }
 

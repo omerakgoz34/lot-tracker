@@ -21,18 +21,31 @@ type XlsxModule = typeof import("xlsx");
 
 function injectScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const existing = document.querySelector(`script[src="${src}"]`);
-    if (existing) {
-      existing.addEventListener("load", () => resolve());
-      existing.addEventListener("error", () => reject(new Error("xlsx")));
+    const w = window as Window & { XLSX?: XlsxModule };
+    if (w.XLSX) {
+      resolve();
       return;
     }
-    const el = document.createElement("script");
-    el.src = src;
-    el.async = true;
-    el.onload = () => resolve();
-    el.onerror = () => reject(new Error("Could not load the spreadsheet engine."));
-    document.head.appendChild(el);
+    const existing = document.querySelector(`script[src="${src}"]`);
+    if (existing instanceof HTMLScriptElement && existing.dataset.loaded === "1") {
+      reject(new Error("Could not load the spreadsheet engine."));
+      return;
+    }
+    const el = existing instanceof HTMLScriptElement ? existing : document.createElement("script");
+    const done = () => {
+      el.dataset.loaded = "1";
+      if (w.XLSX) resolve();
+      else reject(new Error("Could not load the spreadsheet engine."));
+    };
+    el.addEventListener("load", done, { once: true });
+    el.addEventListener("error", () => reject(new Error("Could not load the spreadsheet engine.")), {
+      once: true,
+    });
+    if (!existing) {
+      el.src = src;
+      el.async = true;
+      document.head.appendChild(el);
+    }
   });
 }
 

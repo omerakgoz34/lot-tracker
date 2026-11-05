@@ -436,12 +436,14 @@ function groupHits(rows: RawRow[], columns: ColumnMapping, via: MatchVia): Match
   const groups = new Map<string, RawRow[]>();
   const order: string[] = [];
   for (const row of rows) {
-    const lot = normalize(row[columns.lot] ?? "") || rowKey(row);
-    const list = groups.get(lot);
+    const lot = normalize(row[columns.lot] ?? "");
+    const article = normalize(row[columns.article] ?? "");
+    const groupId = `${article}\0${lot}` || rowKey(row);
+    const list = groups.get(groupId);
     if (list) list.push(row);
     else {
-      groups.set(lot, [row]);
-      order.push(lot);
+      groups.set(groupId, [row]);
+      order.push(groupId);
     }
   }
   return order.map((key) => {

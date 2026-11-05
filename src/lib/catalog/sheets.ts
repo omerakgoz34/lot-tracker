@@ -76,9 +76,20 @@ function gvizToRecords(data: GvizTable): { headers: string[]; rows: RawRow[] } {
   return matrixToRecords(matrix);
 }
 
+let jsonpQueue: Promise<unknown> = Promise.resolve();
+
 function loadViaGvizJsonp(id: string, gid: string): Promise<{ headers: string[]; rows: RawRow[] }> {
+  const run = () => loadViaGvizJsonpNow(id, gid);
+  const queued = jsonpQueue.then(run, run);
+  jsonpQueue = queued.then(
+    () => undefined,
+    () => undefined,
+  );
+  return queued;
+}
+
+function loadViaGvizJsonpNow(id: string, gid: string): Promise<{ headers: string[]; rows: RawRow[] }> {
   return new Promise((resolve, reject) => {
-    const prev = (window as unknown as { google?: unknown }).google;
     const script = document.createElement("script");
     let settled = false;
 
@@ -90,11 +101,8 @@ function loadViaGvizJsonp(id: string, gid: string): Promise<{ headers: string[];
       if (settled) return;
       settled = true;
       window.clearTimeout(timeout);
-      window.setTimeout(() => {
-        script.remove();
-        if (prev !== undefined) (window as unknown as { google: unknown }).google = prev;
-        else delete (window as unknown as { google?: unknown }).google;
-      }, 0);
+      script.remove();
+      delete (window as unknown as { google?: unknown }).google;
       if (err) reject(err);
       else if (value) resolve(value);
     }

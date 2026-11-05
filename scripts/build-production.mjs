@@ -68,7 +68,7 @@ const manifest = {
   id: "./",
   name: "DEPO LOT TAKİP",
   short_name: "DEPO LOT TAKİP",
-  description: "Artikel numarasından LOT numarası bulunur.",
+  description: "Ürün artikel ve LOT numara takibi.",
   start_url: "./",
   scope: "./",
   display: "standalone",
@@ -91,12 +91,12 @@ const html = `<!doctype html>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#ffffff" />
     <meta name="color-scheme" content="light dark" />
-    <meta name="description" content="Artikel numarasından LOT numarası bulunur." />
+    <meta name="description" content="Ürün artikel ve LOT numara takibi." />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="DEPO LOT TAKİP" />
-    <title>DEPO LOT TAKIP</title>
+    <title>DEPO LOT TAKİP</title>
     <link rel="icon" type="image/svg+xml" href="./${iconName}" />
     <link rel="apple-touch-icon" href="./${appleIcon.fileName}" />
     <link rel="manifest" href="./manifest.webmanifest" />
@@ -114,8 +114,8 @@ ${fontPreload}
         <div class="mx-auto flex w-full max-w-xl flex-1 flex-col">
           <header class="mb-6 flex items-center justify-between gap-3">
             <div class="flex min-w-0 items-center gap-3">
-              <span class="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-card-2 shadow-[var(--shadow-border)]" aria-hidden="true">
-                <svg viewBox="0 0 24 24" class="size-full"><rect x="1" y="0.75" width="22" height="22.5" rx="2.6" fill="currentColor" class="text-paper"/><rect x="1" y="0.75" width="22" height="22.5" rx="2.6" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="12" cy="6.6" r="2.05" fill="currentColor" class="text-hole"/><rect x="5" y="11.4" width="14" height="2.3" rx="0.7" fill="currentColor" class="text-accent-deep"/><rect x="5" y="16.4" width="9.5" height="2.3" rx="0.7" fill="currentColor" class="text-ink"/></svg>
+              <span class="flex size-12 shrink-0 items-center justify-center" aria-hidden="true">
+                <svg viewBox="-1.4 -1.4 26.8 26.8" class="size-full"><rect x="1" y="0.75" width="22" height="22.5" rx="2.6" fill="#ffffff"/><rect x="1" y="0.75" width="22" height="22.5" rx="2.6" fill="none" stroke="#141414" stroke-opacity="0.28" stroke-width="1.2"/><circle cx="12" cy="6.6" r="2.05" fill="#e4e4e7"/><rect x="5" y="11.4" width="14" height="2.3" rx="0.7" fill="#2f4a54"/><rect x="5" y="16.4" width="9.5" height="2.3" rx="0.7" fill="#141414"/></svg>
               </span>
               <div class="min-w-0">
                 <p class="truncate text-sm font-medium tracking-tight text-foreground">DEPO LOT TAKİP</p>
@@ -125,7 +125,7 @@ ${fontPreload}
           </header>
           <div>
             <h1 class="text-xl font-medium tracking-tight text-foreground">Katalog yükle</h1>
-            <p class="mt-2 max-w-md text-sm leading-normal text-muted">Google Sheets bağlantısını yapıştırın veya bir Excel dosyası bırakın. Katalog yüklendikten sonra aramalar bu cihazda, çevrimdışı da çalışır.</p>
+            <p class="mt-2 max-w-md text-sm leading-normal text-muted">Google Sheets bağlantısı yapıştırın veya bir Excel dosyası yükleyin. Katalog yüklendikten sonra çevrimdışı da çalışır.</p>
           </div>
         </div>
       </div>
