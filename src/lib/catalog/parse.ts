@@ -462,10 +462,25 @@ export function lookupExact(
 ): MatchHit[] {
   const q = normalize(query);
   if (!q) return [];
-  const primary = index.article.get(q);
-  if (primary && primary.length > 0) return groupHits(primary, columns, "article");
-  const alt = index.alternative.get(q);
-  if (alt && alt.length > 0) return groupHits(alt, columns, "alternative");
+  const articleRows = index.article.get(q) ?? [];
+  const altRows = index.alternative.get(q) ?? [];
+  if (articleRows.length > 0 || altRows.length > 0) {
+    const seen = new Set<string>();
+    const hits: MatchHit[] = [];
+    for (const row of articleRows) {
+      const id = rowKey(row);
+      if (seen.has(id)) continue;
+      seen.add(id);
+      hits.push(toHit(row, columns, "article"));
+    }
+    for (const row of altRows) {
+      const id = rowKey(row);
+      if (seen.has(id)) continue;
+      seen.add(id);
+      hits.push(toHit(row, columns, "alternative"));
+    }
+    return hits;
+  }
   const lots = index.lot.get(q);
   if (lots && lots.length > 0) return groupHits(lots, columns, "lot");
   if (q.length >= 2 && index.names.length > 0) {
