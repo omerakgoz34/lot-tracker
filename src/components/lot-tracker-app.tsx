@@ -64,6 +64,18 @@ function applyChrome(locale: Locale, theme: Theme) {
   description.setAttribute("content", t(locale, "metaDescription"));
 }
 
+function useCoarsePointer() {
+  const [coarse, setCoarse] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(hover: none), (pointer: coarse)");
+    const apply = () => setCoarse(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+  return coarse;
+}
+
 function catalogSubtitle(settings: Settings): string {
   const tr = (key: MessageKey) => t(settings.locale, key);
   if (settings.source?.kind === "file") return settings.source.fileName;
@@ -744,6 +756,7 @@ function SourceView({
 }) {
   const [dragging, setDragging] = useState(false);
   const [confirmKind, setConfirmKind] = useState<null | "clear" | "replace">(null);
+  const coarsePointer = useCoarsePointer();
   const pendingLoad = useRef<null | (() => void)>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const columns = settings.columns;
@@ -863,7 +876,13 @@ function SourceView({
       </section>
 
       <section
-        className={cn("dropzone rounded-3xl p-4", dragging && "dropzone-active")}
+        className={cn("dropzone rounded-3xl p-4", dragging && "dropzone-active", coarsePointer && "cursor-pointer")}
+        onClick={(e) => {
+          if (busy) return;
+          const target = e.target;
+          if (target instanceof Element && target.closest("button, a, input")) return;
+          fileRef.current?.click();
+        }}
         onDragEnter={(e) => {
           e.preventDefault();
           setDragging(true);
@@ -884,7 +903,7 @@ function SourceView({
           <Upload className="size-4 text-accent" />
           <h2 className="text-sm font-medium text-foreground">{tr("excelOrCsv")}</h2>
         </div>
-        <p className="mt-2 px-1 text-sm text-muted">{tr("dropHint")}</p>
+        <p className="mt-2 px-1 text-sm text-muted">{tr(coarsePointer ? "pickHint" : "dropHint")}</p>
         <input
           ref={fileRef}
           type="file"
@@ -1209,7 +1228,7 @@ function FieldSelect({
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-12 w-full rounded-3xl bg-card-2 px-4 text-sm text-foreground shadow-[var(--shadow-border)] focus-visible:outline-none"
+        className="h-12 w-full rounded-3xl bg-card-2 px-4 text-base text-foreground shadow-[var(--shadow-border)] focus-visible:outline-none"
       >
         {allowNone ? <option value="">{noneLabel}</option> : null}
         {headers.map((header) => (

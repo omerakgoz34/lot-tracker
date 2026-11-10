@@ -142,10 +142,12 @@ window.__XLSX_SRC__ = "./${xlsxName}";
 `;
 await writeFile(join(outDir, "index.html"), html);
 await writeFile(join(outDir, ".nojekyll"), "");
+await writeFile(join(outDir, "sw.js"), serviceWorker(listedAssets(await readdir(outDir))));
 
 const listed = (await readdir(outDir))
   .filter((name) =>
     name === "index.html" ||
+    name === "sw.js" ||
     /^(scripts-|styles-|icon-|xlsx-|apple-touch-icon-)/.test(name) ||
     name === "manifest.webmanifest" ||
     /\.(woff2?|otf|ttf)$/.test(name),
@@ -198,12 +200,73 @@ async function extractCssFonts(cssPath, dir) {
   return cssPath.split("/").pop();
 }
 
+function listedAssets(names) {
+  return names
+    .filter((name) =>
+      name === "index.html" ||
+      name === "manifest.webmanifest" ||
+      /^(scripts-|styles-|icon-|xlsx-|apple-touch-icon-)/.test(name) ||
+      /\.(woff2?|otf|ttf)$/.test(name),
+    )
+    .sort();
+}
+
+function serviceWorker(assets) {
+  const cache = `lot-tracker-${createHash("sha256").update(assets.join("\n")).digest("hex").slice(0, 12)}`;
+  return `const CACHE = ${JSON.stringify(cache)};
+const ASSETS = ${JSON.stringify(assets.map((name) => "./" + name))};
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(CACHE).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting()),
+  );
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
+      .then(() => self.clients.claim()),
+  );
+});
+
+self.addEventListener("fetch", (event) => {
+  const request = event.request;
+  if (request.method !== "GET") return;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
+  const shell = new URL("./index.html", self.location).href;
+  const here = new URL("./", self.location).href;
+  const isShell = request.mode === "navigate" || url.href === shell || url.href === here;
+  event.respondWith((async () => {
+    const cache = await caches.open(CACHE);
+    if (isShell) {
+      try {
+        const fresh = await fetch(request);
+        if (fresh.ok) await cache.put(shell, fresh.clone());
+        return fresh;
+      } catch {
+        const cached = await cache.match(shell);
+        if (cached) return cached;
+        throw new Error("offline");
+      }
+    }
+    const cached = await cache.match(request);
+    if (cached) return cached;
+    return fetch(request);
+  })());
+});
+`;
+}
+
 async function cleanProductionFiles(dir) {
   const names = await readdir(dir);
   for (const name of names) {
     if (name === "__grok" || name === "favicon.svg") continue;
     const generated =
       name === "index.html" ||
+      name === "sw.js" ||
       name === "manifest.webmanifest" ||
       name === "BASLAT.bat" ||
       /^scripts-.+\.js$/.test(name) ||

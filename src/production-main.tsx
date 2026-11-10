@@ -31,3 +31,13 @@ createRoot(root).render(
     </Boundary>
   </StrictMode>,
 );
+
+const host = location.hostname;
+const canCache =
+  "serviceWorker" in navigator &&
+  (location.protocol === "https:" || host === "localhost" || host === "127.0.0.1");
+if (import.meta.env.VITE_PRODUCTION === "1" && canCache) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(() => {});
+  });
+}
