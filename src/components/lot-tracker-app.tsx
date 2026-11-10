@@ -99,7 +99,7 @@ export function LotTrackerApp() {
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [screen, setScreen] = useState<Screen>("source");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<MessageKey | null>(null);
 
   useEffect(() => {
     applyChrome(DEFAULT_SETTINGS.locale, DEFAULT_SETTINGS.theme);
@@ -266,7 +266,7 @@ export function LotTrackerApp() {
         }
       } catch {
         if (mode === "manual") {
-          setError(t(settingsRef.current.locale, "loadFailed"));
+          setError("loadFailed");
           setScreen("source");
         }
       } finally {
@@ -475,7 +475,6 @@ function LookupView({
   onOpenSource: () => void;
 }) {
   const [query, setQuery] = useState("");
-  const [committed, setCommitted] = useState("");
   const [asOf, setAsOf] = useState(() => Date.now());
   const inputRef = useRef<HTMLInputElement>(null);
   const columns = settings.columns!;
@@ -509,25 +508,11 @@ function LookupView({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const liveHits = useMemo(
+  const hits = useMemo(
     () => lookupExact(query, index, columns),
     [query, index, columns],
   );
-  const committedHits = useMemo(
-    () => lookupExact(committed, index, columns),
-    [committed, index, columns],
-  );
-
-  const showHits =
-    liveHits.length > 0
-      ? liveHits
-      : query.trim() && committed.trim() === query.trim()
-        ? committedHits
-        : [];
-  const showMiss =
-    Boolean(committed.trim()) &&
-    committed.trim() === query.trim() &&
-    liveHits.length === 0;
+  const showMiss = query.trim().length > 0 && hits.length === 0;
 
   const sourceLabel = settings.catalogTitle
     || (settings.source?.kind === "file"
@@ -542,7 +527,6 @@ function LookupView({
         className="rounded-3xl bg-card p-4 shadow-[var(--shadow-border)]"
         onSubmit={(e) => {
           e.preventDefault();
-          setCommitted(query);
           setAsOf(Date.now());
         }}
       >
@@ -560,9 +544,7 @@ function LookupView({
           }}
           onPaste={() => {
             requestAnimationFrame(() => {
-              const next = inputRef.current?.value ?? "";
-              setQuery(next);
-              setCommitted(next);
+              setQuery(inputRef.current?.value ?? "");
               setAsOf(Date.now());
             });
           }}
@@ -578,9 +560,9 @@ function LookupView({
       </form>
 
       <div className="mt-5 min-h-48" aria-live="polite">
-        {showHits.length > 0 ? (
+        {hits.length > 0 ? (
           <div className="flex flex-col gap-3">
-            {showHits.map((hit, i) => (
+            {hits.map((hit, i) => (
               <LotTag
                 key={`${hit.lot}-${hit.article}-${i}`}
                 hit={hit}
@@ -746,10 +728,10 @@ function SourceView({
   settings: Settings;
   catalog: Catalog | null;
   busy: boolean;
-  error: string | null;
+  error: MessageKey | null;
   tr: (key: MessageKey) => string;
   setBusy: (v: boolean) => void;
-  setError: (v: string | null) => void;
+  setError: (v: MessageKey | null) => void;
   setSheetUrl: (url: string) => void;
   onLoaded: (catalog: Catalog, source: Source, columns: ColumnMapping) => void;
   onColumnsChange: (columns: ColumnMapping) => void;
@@ -776,14 +758,28 @@ function SourceView({
     setConfirmKind("replace");
   }
 
-  async function loadSheet(urlOverride?: string, opts?: { preserveColumns?: boolean }) {
-    const url = (urlOverride ?? settings.sheetUrl).trim();
+  function requestSheetLoad() {
+    const url = settings.sheetUrl.trim();
     if (!url) {
-      setError(tr("pasteLinkFirst"));
+      setError("pasteLinkFirst");
       return;
     }
     if (!parseSheetsUrl(url)) {
-      setError(tr("notSheetsLink"));
+      setError("notSheetsLink");
+      return;
+    }
+    setError(null);
+    runOrConfirmReplace(() => void loadSheet());
+  }
+
+  async function loadSheet(urlOverride?: string, opts?: { preserveColumns?: boolean }) {
+    const url = (urlOverride ?? settings.sheetUrl).trim();
+    if (!url) {
+      setError("pasteLinkFirst");
+      return;
+    }
+    if (!parseSheetsUrl(url)) {
+      setError("notSheetsLink");
       return;
     }
     setBusy(true);
@@ -799,7 +795,7 @@ function SourceView({
         mapping,
       );
     } catch {
-      setError(tr("loadFailed"));
+      setError("loadFailed");
     } finally {
       setBusy(false);
     }
@@ -824,7 +820,7 @@ function SourceView({
         mapping,
       );
     } catch {
-      setError(tr("fileFailed"));
+      setError("fileFailed");
     } finally {
       setBusy(false);
     }
@@ -857,7 +853,7 @@ function SourceView({
         <p className="mt-2 px-1 text-xs leading-normal text-subtle">{tr("shareHint")}</p>
         <Button
           className="mt-4 w-full"
-          onClick={() => runOrConfirmReplace(() => void loadSheet())}
+          onClick={requestSheetLoad}
           disabled={busy}
           tooltip={tr("loadSheet")}
         >
@@ -913,7 +909,7 @@ function SourceView({
 
       {error ? (
         <p className="rounded-3xl bg-danger/10 px-4 py-3 text-sm text-danger" role="alert">
-          {error}
+          {tr(error)}
         </p>
       ) : null}
 

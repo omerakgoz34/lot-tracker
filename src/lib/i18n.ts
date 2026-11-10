@@ -1,4 +1,4 @@
-export const APP_VERSION = "v1.10.4";
+export const APP_VERSION = "v1.11.0";
 
 export type Locale = "tr" | "en" | "de";
 export type Theme = "light" | "dark" | "system";
@@ -15,7 +15,7 @@ export function resolveTheme(theme: Theme): "light" | "dark" {
 export const LOCALE_LABEL: Record<Locale, string> = {
   tr: "Türkçe",
   en: "English",
-  de: "German",
+  de: "Deutsch",
 };
 
 export const LOCALE_BCP47: Record<Locale, string> = {

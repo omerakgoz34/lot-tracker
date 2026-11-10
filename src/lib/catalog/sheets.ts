@@ -3,26 +3,35 @@ import type { RawRow } from "./types";
 
 export type SheetsRef = { id: string; gid: string };
 
+const SHEETS_HOST = "docs.google.com";
+const SHEET_ID = /^[a-zA-Z0-9_-]{20,160}$/;
+const SHEET_GID = /^\d{1,18}$/;
+
+function asSheetsRef(id: string, gid: string): SheetsRef | null {
+  if (!SHEET_ID.test(id) || !SHEET_GID.test(gid)) return null;
+  return { id, gid };
+}
+
 export function parseSheetsUrl(input: string): SheetsRef | null {
   const trimmed = input.trim();
   if (!trimmed) return null;
-  if (/^[a-zA-Z0-9-_]{20,}$/.test(trimmed) && !trimmed.includes("/")) {
-    return { id: trimmed, gid: "0" };
+  if (!trimmed.includes("/") && !trimmed.includes(":")) {
+    return asSheetsRef(trimmed, "0");
   }
+  let url: URL;
   try {
-    const url = new URL(trimmed);
-    if (!url.hostname.endsWith("google.com") && !url.hostname.endsWith("googleusercontent.com")) {
-      return null;
-    }
-    const idMatch = url.pathname.match(/\/spreadsheets\/(?:u\/\d+\/)?d\/([a-zA-Z0-9-_]+)/);
-    const id = idMatch?.[1] ?? url.searchParams.get("id");
-    if (!id || id === "e") return null;
-    const gidFromQuery = url.searchParams.get("gid");
-    const gidFromHash = url.hash.match(/gid=([0-9]+)/)?.[1];
-    return { id, gid: gidFromQuery || gidFromHash || "0" };
+    url = new URL(trimmed);
   } catch {
     return null;
   }
+  if (url.protocol !== "https:" || url.hostname !== SHEETS_HOST) return null;
+  if (url.username || url.password) return null;
+  const idMatch = url.pathname.match(/\/spreadsheets\/(?:u\/\d+\/)?d\/([a-zA-Z0-9_-]+)/);
+  const id = idMatch?.[1] ?? "";
+  const gidFromQuery = url.searchParams.get("gid");
+  if (gidFromQuery !== null && !SHEET_GID.test(gidFromQuery)) return null;
+  const gidFromHash = url.hash.match(/(?:^#|&)gid=(\d{1,18})(?:&|$)/)?.[1] ?? "";
+  return asSheetsRef(id, gidFromQuery || gidFromHash || "0");
 }
 
 type GvizTable = {
@@ -76,19 +85,57 @@ function gvizToRecords(data: GvizTable): { headers: string[]; rows: RawRow[] } {
   return matrixToRecords(matrix);
 }
 
-let jsonpQueue: Promise<unknown> = Promise.resolve();
+function gvizUrl(id: string, gid: string): string {
+  const ref = asSheetsRef(id, gid);
+  if (!ref) throw new Error("Paste a Google Sheets link from the address bar.");
+  const params = new URLSearchParams({
+    tqx: "out:json",
+    headers: "1",
+    tq: "select *",
+    gid: ref.gid,
+  });
+  return `https://${SHEETS_HOST}/spreadsheets/d/${encodeURIComponent(ref.id)}/gviz/tq?${params}`;
+}
 
-function loadViaGvizJsonp(id: string, gid: string): Promise<{ headers: string[]; rows: RawRow[] }> {
-  const run = () => loadViaGvizJsonpNow(id, gid);
-  const queued = jsonpQueue.then(run, run);
-  jsonpQueue = queued.then(
+function parseGvizPayload(text: string): GvizTable {
+  const marker = "google.visualization.Query.setResponse(";
+  const start = text.indexOf(marker);
+  if (start < 0) throw new Error("Could not read that sheet.");
+  const body = text.slice(start + marker.length).replace(/\);\s*$/, "");
+  const data = JSON.parse(body) as GvizTable;
+  if (!data || typeof data !== "object") throw new Error("Could not read that sheet.");
+  return data;
+}
+
+function canFetchSheets(): boolean {
+  if (typeof location === "undefined") return true;
+  return location.protocol === "https:" || location.protocol === "http:";
+}
+
+let loadQueue: Promise<unknown> = Promise.resolve();
+
+function enqueue<T>(run: () => Promise<T>): Promise<T> {
+  const queued = loadQueue.then(run, run);
+  loadQueue = queued.then(
     () => undefined,
     () => undefined,
   );
   return queued;
 }
 
-function loadViaGvizJsonpNow(id: string, gid: string): Promise<{ headers: string[]; rows: RawRow[] }> {
+async function loadViaFetch(id: string, gid: string): Promise<{ headers: string[]; rows: RawRow[] }> {
+  let response: Response;
+  try {
+    response = await fetch(gvizUrl(id, gid), { credentials: "omit", mode: "cors" });
+  } catch {
+    throw new Error("Could not reach Google Sheets from this browser.");
+  }
+  if (!response.ok) throw new Error("Could not reach Google Sheets from this browser.");
+  return gvizToRecords(parseGvizPayload(await response.text()));
+}
+
+function loadViaGvizJsonp(id: string, gid: string): Promise<{ headers: string[]; rows: RawRow[] }> {
+  const src = gvizUrl(id, gid);
   return new Promise((resolve, reject) => {
     const script = document.createElement("script");
     let settled = false;
@@ -121,7 +168,7 @@ function loadViaGvizJsonpNow(id: string, gid: string): Promise<{ headers: string
       },
     };
 
-    script.src = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json&headers=1&tq=${encodeURIComponent("select *")}&gid=${gid}`;
+    script.src = src;
     script.async = true;
     script.onerror = () => {
       finish(new Error("Could not reach Google Sheets from this browser."));
@@ -141,6 +188,8 @@ export async function loadGoogleSheet(url: string): Promise<{
     throw new Error("Paste a Google Sheets link from the address bar.");
   }
 
-  const parsed = await loadViaGvizJsonp(ref.id, ref.gid);
+  const parsed = await enqueue(() =>
+    canFetchSheets() ? loadViaFetch(ref.id, ref.gid) : loadViaGvizJsonp(ref.id, ref.gid),
+  );
   return { ...parsed, ref, title: "" };
 }
