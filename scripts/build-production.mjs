@@ -134,9 +134,6 @@ ${fontPreload}
       </noscript>
     </div>
     <script>
-window.globalThis = window.globalThis || window;
-window.global = window.global || window;
-window.process = window.process || { env: { NODE_ENV: "production" } };
 window.__XLSX_SRC__ = "./${xlsxName}";
     </script>
     <script src="./${scriptName}" defer></script>

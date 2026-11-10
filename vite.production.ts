@@ -23,6 +23,8 @@ export default defineConfig({
     "process.env": JSON.stringify({ NODE_ENV: "production" }),
   },
   build: {
+    target: "safari16.4",
+    cssTarget: "safari16.4",
     outDir: "public",
     emptyOutDir: false,
     assetsInlineLimit: 0,

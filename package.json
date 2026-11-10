@@ -3,6 +3,10 @@
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.18.0",
+  "browserslist": [
+    "iOS >= 16.4",
+    "Safari >= 16.4"
+  ],
   "scripts": {
     "production": "node scripts/build-production.mjs",
     "typecheck": "tsc --noEmit"
