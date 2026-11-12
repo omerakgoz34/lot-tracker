@@ -24,6 +24,7 @@ export type Settings = {
   catalogTitle: string;
   showDetails: boolean;
   sheetRefresh: SheetRefreshMinutes;
+  epoch: number;
 };
 
 export type Catalog = {
@@ -60,6 +61,7 @@ export const DEFAULT_SETTINGS: Settings = {
   catalogTitle: "",
   showDetails: true,
   sheetRefresh: 0,
+  epoch: 0,
 };
 
 export function coerceColumns(raw: unknown): ColumnMapping | null {

@@ -24,8 +24,9 @@ import {
   clearCatalog,
   loadCatalog,
   loadSettings,
+  patchSettings,
   replaceCatalog,
-  saveSettings,
+  withCatalogLock,
 } from "@/lib/catalog/storage";
 import type { Catalog, ColumnMapping, MatchHit, Settings, Source } from "@/lib/catalog/types";
 import { DEFAULT_SETTINGS, SHEET_REFRESH_MINUTES } from "@/lib/catalog/types";
@@ -118,39 +119,44 @@ export function LotTrackerApp() {
     let cancelled = false;
     (async () => {
       try {
-        const stored = loadSettings();
-        const data = await loadCatalog();
+        let stored = loadSettings();
+        let data = stored.source ? await loadCatalog() : null;
         if (cancelled) return;
-        const usable = stored.source ? data : null;
-        if (usable && stored.columns) {
-          const detected = detectColumns(usable.headers);
-          if (!stored.columns.name && detected.name) {
-            stored.columns = { ...stored.columns, name: detected.name };
+        const latest = loadSettings();
+        if (latest.epoch !== stored.epoch && latest.source) data = await loadCatalog();
+        if (cancelled) return;
+        stored = latest;
+        if (!stored.source) data = null;
+        if (data && stored.columns) {
+          const detected = detectColumns(data.headers);
+          const columns = { ...stored.columns };
+          let changed = false;
+          if (!columns.name && detected.name) {
+            columns.name = detected.name;
+            changed = true;
           }
-          if (!stored.columns.alternative && isPreferredAlternative(detected.alternative)) {
-            stored.columns = { ...stored.columns, alternative: detected.alternative };
+          if (!columns.alternative && isPreferredAlternative(detected.alternative)) {
+            columns.alternative = detected.alternative;
+            changed = true;
           }
-          if (stored.columns.expiry === undefined) {
-            stored.columns = { ...stored.columns, expiry: detected.expiry };
+          if (columns.expiry === undefined) {
+            columns.expiry = detected.expiry;
+            changed = true;
           }
+          if (changed) stored = patchSettings({ columns });
         }
         if (!stored.catalogTitle && stored.source) {
-          stored.catalogTitle =
-            stored.source.kind === "file"
-              ? stored.source.fileName
-              : stored.source.title || t(stored.locale, "googleSheet");
+          stored = patchSettings({
+            catalogTitle:
+              stored.source.kind === "file"
+                ? stored.source.fileName
+                : stored.source.title || t(stored.locale, "googleSheet"),
+          });
         }
-        saveSettings(stored);
         applyChrome(stored.locale, stored.theme);
-        if (!stored.source && data) void clearCatalog();
-        if (!stored.source && (stored.columns || stored.loadedAt)) {
-          stored.columns = null;
-          stored.loadedAt = null;
-          saveSettings(stored);
-        }
         setSettings(stored);
-        setCatalog(usable);
-        setScreen(usable && stored.columns ? "lookup" : "source");
+        setCatalog(data);
+        setScreen(data && stored.columns ? "lookup" : "source");
       } catch {
         if (cancelled) return;
         applyChrome(DEFAULT_SETTINGS.locale, DEFAULT_SETTINGS.theme);
@@ -178,11 +184,20 @@ export function LotTrackerApp() {
     };
   }, []);
 
-  const persistSettings = useCallback((next: Settings) => {
+  const applyStored = useCallback((next: Settings, nextCatalog?: Catalog | null) => {
     setSettings(next);
-    saveSettings(next);
+    if (nextCatalog !== undefined) setCatalog(nextCatalog);
     applyChrome(next.locale, next.theme);
   }, []);
+
+  const commitPatch = useCallback(
+    (patch: Partial<Settings>, bumpEpoch = false) => {
+      const next = patchSettings(patch, bumpEpoch);
+      applyStored(next);
+      return next;
+    },
+    [applyStored],
+  );
 
   useEffect(() => {
     applyChrome(settings.locale, settings.theme);
@@ -193,100 +208,136 @@ export function LotTrackerApp() {
     return () => mq.removeEventListener("change", onChange);
   }, [settings.locale, settings.theme]);
 
-  const persist = useCallback((next: Settings, nextCatalog: Catalog | null) => {
-    persistSettings(next);
-    setCatalog(nextCatalog);
-    if (nextCatalog) void replaceCatalog(nextCatalog);
-    else void clearCatalog();
-  }, [persistSettings]);
-
-  const onLoaded = useCallback(
-    (nextCatalog: Catalog, source: Source, columns: ColumnMapping) => {
-      persist(
-        {
-          ...settings,
-          source,
-          columns,
-          loadedAt: Date.now(),
-          sheetUrl: source.kind === "sheets" ? source.url : settings.sheetUrl,
-          catalogTitle:
-            source.kind === "file"
-              ? source.fileName
-              : source.title || t(settings.locale, "googleSheet"),
-        },
-        nextCatalog,
-      );
+  const commitLoad = useCallback(
+    async (
+      epoch: number,
+      nextCatalog: Catalog,
+      source: Source,
+      columns: ColumnMapping,
+      goLookup: boolean,
+      alreadyLocked = false,
+    ) => {
+      const write = async () => {
+        const latest = loadSettings();
+        if (latest.epoch !== epoch) return null;
+        await replaceCatalog(nextCatalog);
+        const title =
+          source.kind === "file"
+            ? source.fileName
+            : source.title || latest.catalogTitle || t(latest.locale, "googleSheet");
+        return patchSettings(
+          {
+            source,
+            columns,
+            loadedAt: Date.now(),
+            sheetUrl: source.kind === "sheets" ? source.url : latest.sheetUrl,
+            catalogTitle: title,
+          },
+          true,
+        );
+      };
+      const saved = alreadyLocked ? await write() : await withCatalogLock(write);
+      if (!saved) {
+        const latest = loadSettings();
+        const data = latest.source ? await loadCatalog() : null;
+        applyStored(latest, data);
+        setScreen(data && latest.columns ? "lookup" : "source");
+        return false;
+      }
+      applyStored(saved, nextCatalog);
       setError(null);
-      setScreen("lookup");
+      if (goLookup) setScreen("lookup");
+      return true;
     },
-    [persist, settings],
+    [applyStored],
   );
 
   const onColumnsChange = useCallback(
     (columns: ColumnMapping) => {
-      persistSettings({ ...settings, columns });
+      commitPatch({ columns }, true);
     },
-    [persistSettings, settings],
+    [commitPatch],
   );
 
   const onClear = useCallback(() => {
-    persist(
-      { ...settings, source: null, columns: null, loadedAt: null, catalogTitle: "" },
-      null,
-    );
-    setScreen("source");
-    setError(null);
-  }, [persist, settings]);
+    void (async () => {
+      setBusy(true);
+      try {
+        await withCatalogLock(async () => {
+          const next = patchSettings(
+            { source: null, columns: null, loadedAt: null, catalogTitle: "" },
+            true,
+          );
+          await clearCatalog();
+          applyStored(next, null);
+        });
+        setScreen("source");
+        setError(null);
+      } finally {
+        setBusy(false);
+      }
+    })();
+  }, [applyStored]);
 
-  const settingsRef = useRef(settings);
-  settingsRef.current = settings;
   const busyRef = useRef(false);
+
+  const guardBusy = useCallback(async (job: () => Promise<boolean>) => {
+    if (busyRef.current) return false;
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      return await job();
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  }, []);
 
   const refreshSheet = useCallback(
     async (mode: "manual" | "auto") => {
-      const current = settingsRef.current;
-      if (current.source?.kind !== "sheets") return;
-      if (busyRef.current) return;
-      busyRef.current = true;
-      setBusy(true);
+      const current = loadSettings();
+      if (current.source?.kind !== "sheets") return false;
       if (mode === "manual") setError(null);
-      try {
-        const loaded = await loadGoogleSheet(current.source.url);
-        const latest = settingsRef.current;
-        if (latest.source?.kind !== "sheets" || latest.source.url !== current.source.url) return;
+      const job = async (alreadyLocked: boolean) => {
+        const started = loadSettings();
+        if (started.source?.kind !== "sheets") return false;
+        const epoch = started.epoch;
+        const loaded = await loadGoogleSheet(started.source.url);
+        const latest = loadSettings();
+        if (latest.epoch !== epoch) return false;
+        if (latest.source?.kind !== "sheets" || latest.source.url !== started.source.url) return false;
         const mapping = reuseColumns(latest.columns, loaded.headers);
-        persist(
-          {
-            ...latest,
-            source: {
-              kind: "sheets",
-              url: latest.source.url,
-              id: loaded.ref.id,
-              gid: loaded.ref.gid,
-              title: loaded.title || latest.source.title,
-            },
-            columns: mapping,
-            loadedAt: Date.now(),
-            sheetUrl: latest.source.url,
-            catalogTitle: loaded.title || latest.catalogTitle || t(latest.locale, "googleSheet"),
-          },
+        return commitLoad(
+          epoch,
           { headers: loaded.headers, rows: loaded.rows },
+          {
+            kind: "sheets",
+            url: latest.source.url,
+            id: loaded.ref.id,
+            gid: loaded.ref.gid,
+            title: loaded.title || latest.source.title,
+          },
+          mapping,
+          mode === "manual",
+          alreadyLocked,
         );
-        if (mode === "manual") {
-          setError(null);
-          setScreen("lookup");
-        }
+      };
+      try {
+        if (mode === "auto" && busyRef.current) return false;
+        const ok =
+          mode === "auto"
+            ? await withCatalogLock(() => guardBusy(() => job(true)), { ifAvailable: true })
+            : await guardBusy(() => job(false));
+        return ok === true;
       } catch {
         if (mode === "manual") {
           setError("loadFailed");
           setScreen("source");
         }
-      } finally {
-        busyRef.current = false;
-        setBusy(false);
+        return false;
       }
     },
-    [persist],
+    [commitLoad, guardBusy],
   );
 
   useEffect(() => {
@@ -308,19 +359,23 @@ export function LotTrackerApp() {
         if (running) arm(ms);
         return;
       }
-      const before = settingsRef.current.loadedAt;
+      const due = (loadSettings().loadedAt ?? 0) + ms;
+      if (Date.now() < due) {
+        arm(due - Date.now());
+        return;
+      }
       await refreshSheet("auto");
       if (!running) return;
-      const after = settingsRef.current.loadedAt;
-      arm(after && after !== before ? Math.max(1_000, after + ms - Date.now()) : ms);
+      const next = (loadSettings().loadedAt ?? 0) + ms - Date.now();
+      arm(next > 0 ? Math.max(1_000, next) : ms);
     };
 
-    const wait = Math.max(0, (settingsRef.current.loadedAt ?? 0) + ms - Date.now());
+    const wait = Math.max(0, (loadSettings().loadedAt ?? 0) + ms - Date.now());
     arm(wait);
 
     const onVisible = () => {
       if (!running || document.visibilityState === "hidden") return;
-      const loadedAt = settingsRef.current.loadedAt ?? 0;
+      const loadedAt = loadSettings().loadedAt ?? 0;
       if (Date.now() - loadedAt < ms) return;
       window.clearTimeout(timer);
       void run();
@@ -365,17 +420,16 @@ export function LotTrackerApp() {
             busy={busy}
             error={error}
             tr={tr}
-            setBusy={setBusy}
             setError={setError}
-            setSheetUrl={(sheetUrl) => persistSettings({ ...settings, sheetUrl })}
-            onLoaded={onLoaded}
+            guardBusy={guardBusy}
+            commitLoad={commitLoad}
             onColumnsChange={onColumnsChange}
             onClear={onClear}
             onDone={() => setScreen("lookup")}
-            onLocale={(next) => persistSettings({ ...settings, locale: next })}
-            onTheme={(next) => persistSettings({ ...settings, theme: next })}
-            onShowDetails={(showDetails) => persistSettings({ ...settings, showDetails })}
-            onSheetRefresh={(sheetRefresh) => persistSettings({ ...settings, sheetRefresh })}
+            onLocale={(next) => commitPatch({ locale: next })}
+            onTheme={(next) => commitPatch({ theme: next })}
+            onShowDetails={(showDetails) => commitPatch({ showDetails })}
+            onSheetRefresh={(sheetRefresh) => commitPatch({ sheetRefresh })}
           />
         ) : (
           <LookupView
@@ -725,10 +779,9 @@ function SourceView({
   busy,
   error,
   tr,
-  setBusy,
   setError,
-  setSheetUrl,
-  onLoaded,
+  guardBusy,
+  commitLoad,
   onColumnsChange,
   onClear,
   onDone,
@@ -742,10 +795,16 @@ function SourceView({
   busy: boolean;
   error: MessageKey | null;
   tr: (key: MessageKey) => string;
-  setBusy: (v: boolean) => void;
   setError: (v: MessageKey | null) => void;
-  setSheetUrl: (url: string) => void;
-  onLoaded: (catalog: Catalog, source: Source, columns: ColumnMapping) => void;
+  guardBusy: (job: () => Promise<boolean>) => Promise<boolean>;
+  commitLoad: (
+    epoch: number,
+    nextCatalog: Catalog,
+    source: Source,
+    columns: ColumnMapping,
+    goLookup: boolean,
+    alreadyLocked?: boolean,
+  ) => Promise<boolean>;
   onColumnsChange: (columns: ColumnMapping) => void;
   onClear: () => void;
   onDone: () => void;
@@ -756,11 +815,17 @@ function SourceView({
 }) {
   const [dragging, setDragging] = useState(false);
   const [confirmKind, setConfirmKind] = useState<null | "clear" | "replace">(null);
+  const [sheetUrl, setSheetUrl] = useState(settings.sheetUrl);
+  const sheetUrlEdited = useRef(false);
   const coarsePointer = useCoarsePointer();
   const pendingLoad = useRef<null | (() => void)>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const columns = settings.columns;
   const headers = catalog?.headers ?? [];
+
+  useEffect(() => {
+    if (!sheetUrlEdited.current) setSheetUrl(settings.sheetUrl);
+  }, [settings.sheetUrl]);
 
   function runOrConfirmReplace(action: () => void) {
     if (!catalog) {
@@ -772,7 +837,7 @@ function SourceView({
   }
 
   function requestSheetLoad() {
-    const url = settings.sheetUrl.trim();
+    const url = sheetUrl.trim();
     if (!url) {
       setError("pasteLinkFirst");
       return;
@@ -786,7 +851,7 @@ function SourceView({
   }
 
   async function loadSheet(urlOverride?: string, opts?: { preserveColumns?: boolean }) {
-    const url = (urlOverride ?? settings.sheetUrl).trim();
+    const url = (urlOverride ?? sheetUrl).trim();
     if (!url) {
       setError("pasteLinkFirst");
       return;
@@ -795,47 +860,54 @@ function SourceView({
       setError("notSheetsLink");
       return;
     }
-    setBusy(true);
     setError(null);
     try {
-      const loaded = await loadGoogleSheet(url);
-      const mapping = opts?.preserveColumns
-        ? reuseColumns(settings.columns, loaded.headers)
-        : detectColumns(loaded.headers);
-      onLoaded(
-        { headers: loaded.headers, rows: loaded.rows },
-        { kind: "sheets", url, id: loaded.ref.id, gid: loaded.ref.gid, title: loaded.title },
-        mapping,
-      );
+      const ok = await guardBusy(async () => {
+        const epoch = loadSettings().epoch;
+        const loaded = await loadGoogleSheet(url);
+        if (loadSettings().epoch !== epoch) return false;
+        const mapping = opts?.preserveColumns
+          ? reuseColumns(loadSettings().columns, loaded.headers)
+          : detectColumns(loaded.headers);
+        return commitLoad(
+          epoch,
+          { headers: loaded.headers, rows: loaded.rows },
+          { kind: "sheets", url, id: loaded.ref.id, gid: loaded.ref.gid, title: loaded.title },
+          mapping,
+          true,
+        );
+      });
+      if (!ok) return;
     } catch {
       setError("loadFailed");
-    } finally {
-      setBusy(false);
     }
   }
 
   async function loadFile(file: File) {
-    setBusy(true);
     setError(null);
     try {
-      const workbook = await parseWorkbook(file);
-      const first = workbook.sheetNames[0]!;
-      const parsed = workbook.sheets[first]!;
-      const mapping = detectColumns(parsed.headers);
-      onLoaded(
-        {
-          headers: parsed.headers,
-          rows: parsed.rows,
-          sheetNames: workbook.sheetNames,
-          activeSheet: first,
-        },
-        { kind: "file", fileName: file.name, title: file.name },
-        mapping,
-      );
+      const ok = await guardBusy(async () => {
+        const epoch = loadSettings().epoch;
+        const workbook = await parseWorkbook(file);
+        if (loadSettings().epoch !== epoch) return false;
+        const first = workbook.sheetNames[0]!;
+        const parsed = workbook.sheets[first]!;
+        return commitLoad(
+          epoch,
+          {
+            headers: parsed.headers,
+            rows: parsed.rows,
+            sheetNames: workbook.sheetNames,
+            activeSheet: first,
+          },
+          { kind: "file", fileName: file.name, title: file.name },
+          detectColumns(parsed.headers),
+          true,
+        );
+      });
+      if (!ok) return;
     } catch {
       setError("fileFailed");
-    } finally {
-      setBusy(false);
     }
   }
 
@@ -856,8 +928,11 @@ function SourceView({
         </Label>
         <Input
           id="sheet-url"
-          value={settings.sheetUrl}
-          onChange={(e) => setSheetUrl(e.target.value)}
+          value={sheetUrl}
+          onChange={(e) => {
+            sheetUrlEdited.current = true;
+            setSheetUrl(e.target.value);
+          }}
           placeholder="https://docs.google.com/spreadsheets/d/…"
           autoCapitalize="off"
           autoCorrect="off"

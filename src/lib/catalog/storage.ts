@@ -67,6 +67,7 @@ export function loadSettings(): Settings {
       catalogTitle: typeof parsed.catalogTitle === "string" ? parsed.catalogTitle : "",
       showDetails,
       sheetRefresh,
+      epoch: typeof parsed.epoch === "number" && parsed.epoch >= 0 ? parsed.epoch : 0,
     };
   } catch {
     return { ...DEFAULT_SETTINGS };
@@ -80,6 +81,34 @@ export function saveSettings(settings: Settings): void {
   } catch {
     // Safari private / blocked storage
   }
+}
+
+export function patchSettings(patch: Partial<Settings>, bumpEpoch = false): Settings {
+  const current = loadSettings();
+  const next: Settings = {
+    ...current,
+    ...patch,
+    epoch: current.epoch + (bumpEpoch ? 1 : 0),
+  };
+  saveSettings(next);
+  return next;
+}
+
+const CATALOG_LOCK = "lot-tracker-catalog";
+
+export async function withCatalogLock<T>(
+  job: () => Promise<T>,
+  opts?: { ifAvailable?: boolean },
+): Promise<T | null> {
+  if (typeof navigator === "undefined" || !navigator.locks) return job();
+  return navigator.locks.request(
+    CATALOG_LOCK,
+    { ifAvailable: opts?.ifAvailable === true },
+    async (lock) => {
+      if (!lock) return null;
+      return job();
+    },
+  );
 }
 
 function pruneLegacyLocalStorage(): void {
@@ -176,16 +205,6 @@ function deleteDatabase(name: string): Promise<void> {
   });
 }
 
-export async function wipeCatalogStorage(): Promise<void> {
-  pruneLegacyLocalStorage();
-  if (!canUseIndexedDb()) return;
-  closeDb();
-  await deleteDatabase(DB_NAME);
-  for (const name of LEGACY_DB_NAMES) {
-    await deleteDatabase(name);
-  }
-}
-
 export async function loadCatalog(): Promise<Catalog | null> {
   if (!canUseIndexedDb()) return null;
   try {
@@ -220,5 +239,20 @@ export async function replaceCatalog(catalog: Catalog): Promise<void> {
 }
 
 export async function clearCatalog(): Promise<void> {
-  await wipeCatalogStorage();
+  pruneLegacyLocalStorage();
+  if (!canUseIndexedDb()) return;
+  try {
+    const db = await openDb();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE, "readwrite");
+      tx.objectStore(STORE).delete(CATALOG_KEY);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    // ignore a blocked store; the next successful load overwrites the record
+  }
+  for (const name of LEGACY_DB_NAMES) {
+    await deleteDatabase(name);
+  }
 }
